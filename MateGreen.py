@@ -52,7 +52,7 @@ class MateGreen:
         self.trades = []  # Historical trade records
         self.equity_curve = [initial_capital]
         self.market_bias = 'neutral'
-        #self.logger  = log
+        self.logger  = log
         self.logger .info(f"MateGreen initialized for {symbol} on {timeframe} timeframe")
 
     def get_market_data(self):
