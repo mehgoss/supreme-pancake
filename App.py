@@ -54,6 +54,7 @@ def long_running_task(logger,bot):
             risk_per_trade=0.02,
             log=logger,
             telegram_bot=bot
+            api=api
         )
         
         # Log start time
