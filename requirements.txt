@@ -9,6 +9,7 @@ yfinance
 
 # Data Manipulation and Visualization
 matplotlib
+mplfinance
 numpy
 pandas
 
