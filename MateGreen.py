@@ -60,10 +60,10 @@ class MateGreen:
         Fetch market data from BitMEX API or fallback to yfinance.
         """
         try:
-            logger.info(f"Fetching {self.symbol} market data from BitMEX")
+            self.logger.info(f"Fetching {self.symbol} market data from BitMEX")
             data = self.api.get_candle(symbol=self.symbol, timeframe=self.timeframe)
             df = pd.DataFrame(data)
-            logger.info(f"Retrieved {len(df)} candles from BitMEX")
+            self.logger.info(f"Retrieved {len(df)} candles from BitMEX")
             self.df = df
             self.df.columns = [col.lower() for col in self.df.columns]
             self.df['higher_high'] = False
@@ -76,7 +76,7 @@ class MateGreen:
             self.df['bearish_fvg'] = False
             return df
         except Exception as e:
-            logger.warning(f"Failed to get data from BitMEX API: {str(e)}. Falling back to yfinance.")
+            self.logger.warning(f"Failed to get data from BitMEX API: {str(e)}. Falling back to yfinance.")
             crypto_ticker = self.symbol if self.symbol.endswith('USD') else f"{self.symbol}-USD"
             sast_now = get_sast_time()
             end_date = sast_now
@@ -88,7 +88,7 @@ class MateGreen:
                     end=end_date.strftime('%Y-%m-%d'),
                     interval=self.timeframe
                 )
-                logger.info(f"Retrieved {len(data)} candles from yfinance")
+                self.logger.info(f"Retrieved {len(data)} candles from yfinance")
                 self.df = data
                 if not data.empty:
                     if isinstance(self.df.columns, pd.MultiIndex):
