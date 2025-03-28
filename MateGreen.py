@@ -66,19 +66,10 @@ class MateGreen:
             self.logger.info(f"Retrieved {len(df)} candles from BitMEX")
             self.df = df
             self.df.columns = [col.lower() for col in self.df.columns]
-            self.df['higher_high'] = False
-            self.df['lower_low'] = False
-            self.df['bos_up'] = False
-            self.df['bos_down'] = False
-            self.df['choch_up'] = False
-            self.df['choch_down'] = False
-            self.df['bullish_fvg'] = False
-            self.df['bearish_fvg'] = False
-            return df
         except Exception as e:
             self.logger.warning(f"Failed to get data from BitMEX API: {str(e)}. Falling back to yfinance.")
             crypto_ticker = self.symbol if self.symbol.endswith('USD') else f"{self.symbol}-USD"
-            sast_now = get_sast_time()
+            sast_now = self.get_sast_time()
             end_date = sast_now
             start_date = end_date - timedelta(days=2)
             try:
@@ -89,26 +80,39 @@ class MateGreen:
                     interval=self.timeframe
                 )
                 self.logger.info(f"Retrieved {len(data)} candles from yfinance")
+                
+                # Ensure the DataFrame is not empty and has required columns
+                if data.empty:
+                    self.logger.error("Retrieved empty DataFrame from yfinance")
+                    return False
+                
+                # Standardize column names
+                if isinstance(data.columns, pd.MultiIndex):
+                    data.columns = [col[0].lower() if col[1] else col[0].lower() for col in data.columns]
+                else:
+                    data.columns = [col.lower() for col in data.columns]
+                
+                # Ensure required columns exist
+                required_columns = ['open', 'high', 'low', 'close']
+                if not all(col in data.columns for col in required_columns):
+                    self.logger.error(f"Missing required columns. Available: {data.columns}")
+                    return False
+                
+                # Add additional columns for market structure analysis
+                data['higher_high'] = False
+                data['lower_low'] = False
+                data['bos_up'] = False
+                data['bos_down'] = False
+                data['choch_up'] = False
+                data['choch_down'] = False
+                data['bullish_fvg'] = False
+                data['bearish_fvg'] = False
+                
                 self.df = data
-                if not data.empty:
-                    if isinstance(self.df.columns, pd.MultiIndex):
-                        self.df.columns = [col[0].lower() if col[1] else col[0].lower() for col in self.df.columns]
-                    else:
-                        self.df.columns = [col.lower() for col in self.df.columns]
-                    required_columns = ['open', 'high', 'low', 'close']
-                    if all(col in self.df.columns for col in required_columns):
-                        self.df['higher_high'] = False
-                        self.df['lower_low'] = False
-                        self.df['bos_up'] = False
-                        self.df['bos_down'] = False
-                        self.df['choch_up'] = False
-                        self.df['choch_down'] = False
-                        self.df['bullish_fvg'] = False
-                        self.df['bearish_fvg'] = False
-                return data
+                return True
             except Exception as e:
-                logger.error(f"yfinance fallback failed: {str(e)}")
-                return pd.DataFrame()
+                self.logger.error(f"yfinance fallback failed: {str(e)}")
+                return False
 
 
     def identify_swing_points(self):
