@@ -291,6 +291,14 @@ class MateGreen:
         )
         ax1.set_title(f"{self.symbol} - SMC Analysis")
 
+        # Plot only the entry points of trades
+        for trade in self.trades:
+            if start_idx <= trade['entry_index'] < end_idx:
+                color = 'green' if trade['type'] == 'long' else 'red'
+                marker = '^' if trade['type'] == 'long' else 'v'
+                entry_time = subset.index[trade['entry_index'] - start_idx]
+                ax1.scatter(entry_time, trade['entry_price'], color=color, marker=marker, s=120, zorder=5)
+
         # Equity curve (bottom subplot)
         ax2 = fig.add_subplot(gs[1, 0])
         equity_indices = range(len(self.equity_curve))
