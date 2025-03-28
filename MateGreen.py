@@ -336,7 +336,7 @@ class MateGreen:
 
     def calculate_performance(self):
         """Calculate performance metrics."""
-        if not self.trades:
+        if not self.trades and if not self.trades['pnl']:
             return {'total_trades': 0, 'win_rate': 0, 'profit_factor': 0, 'total_return_pct': 0, 'max_drawdown_pct': 0}
         winning_trades = [t for t in self.trades if t.get('pnl', 0) > 0]
         win_rate = len(winning_trades) / len(self.trades)
