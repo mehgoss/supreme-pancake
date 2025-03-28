@@ -18,7 +18,7 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-#self.logger, telegram_bot = configure_logging(TOKEN, CHAT_ID)
+##self.logger, telegram_bot = configure_logging(TOKEN, CHAT_ID)
 
 # Set the correct time zone
 utc_now = datetime.utcnow()
@@ -67,7 +67,7 @@ class BitMEXTestAPI:
         :param symbol: Trading symbol (default SOL-USD)
         """
         try:
-            self.logger = Log
+            ##self.logger= Log
             self.client = bitmex.bitmex(
                 test=test,
                 api_key=api_key,
@@ -77,11 +77,11 @@ class BitMEXTestAPI:
 
             # Log initialization
             network_type = 'testnet' if test else 'mainnet'
-            self.logger.info(f"BitMEXAPI initialized for {symbol} on {network_type}")
+            #self.logger.info(f"BitMEXAPI initialized for {symbol} on {network_type}")
             print(f"BitMEXTestAPI initialized for {symbol} on {network_type}")
 
         except Exception as e:
-            self.logger.error(f"Initialization error: {str(e)}")
+            #self.logger.error(f"Initialization error: {str(e)}")
             print(f"Initialization error: {str(e)}")
             raise
 
@@ -148,13 +148,13 @@ class BitMEXTestAPI:
             self.logger.info("Profile information retrieved successfully")
             print("Profile information retrieved successfully")
 
-            self.logger.info(f"Account: {profile_info['user']['username']}")
+            #self.logger.info(f"Account: {profile_info['user']['username']}")
             print(f"Account: {profile_info['user']['username']}")
 
             self.logger.info(f"Wallet Balance: {wallet_balance_btc:.8f} BTC ({btc_to_usd(wallet_balance_btc):.2f} USD)")
             print(f"Wallet Balance: {wallet_balance_btc:.8f} BTC ({wallet_balance_usd:.2f} USD)")
 
-            self.logger.info(f"Available Margin: {profile_info['balance']['available_margin'] / 100000000:.8f} BTC")
+            #self.logger.info(f"Available Margin: {profile_info['balance']['available_margin'] / 100000000:.8f} BTC")
             print(f"Available Margin: {profile_info['balance']['available_margin'] / 100000000:.8f} BTC")
 
             if profile_info['positions']:
@@ -162,7 +162,7 @@ class BitMEXTestAPI:
                     self.logger.info(f"📈🔵🔴Position: {pos['symbol']} | Qty: {pos['current_qty']} | Entry: {pos['avg_entry_price']}")
                     print(f"Position: {pos['symbol']} | Qty: {pos['current_qty']} | Entry: {pos['avg_entry_price']}")
             else:
-                self.logger.info("No open positions")
+                #self.logger.info("No open positions")
                 print("No open positions")
 
             return profile_info
@@ -239,13 +239,13 @@ class BitMEXTestAPI:
                 }).dropna().tail(count)
 
             # Log retrieval success
-            self.logger.info(f"Retrieved {len(df)} {timeframe} candles for {self.symbol}")
+            #self.logger.info(f"Retrieved {len(df)} {timeframe} candles for {self.symbol}")
             print(f"Retrieved {len(df)} {timeframe} candles for {self.symbol}")
 
             return df
 
         except Exception as e:
-            self.logger.error(f"Error retrieving candle data: {str(e)}")
+            #self.logger.error(f"Error retrieving candle data: {str(e)}")
             print(f"Error retrieving candle data: {str(e)}")
             return None
 
@@ -265,7 +265,7 @@ class BitMEXTestAPI:
             order = self.client.Order.Order_new(
                 symbol = self.symbol if '-' not in self.symbol else self.symbol.replace('-', '') ,
                 side=side,
-                orderQty=quantity if quantity > 1 else int(quantity)+1*10,
+                orderQty=quantity if quantity > 50 else int(quantity)+1*100,
                 ordType=order_type
             ).result()[0]
 
@@ -283,7 +283,7 @@ class BitMEXTestAPI:
             return order
 
         except Exception as e:
-            self.logger.error(f"Error opening test position: {str(e)}")
+            #self.logger.error(f"Error opening test position: {str(e)}")
             print(f"Error opening test position: {str(e)}")
             return None
 
@@ -299,7 +299,7 @@ class BitMEXTestAPI:
             current_qty = position['currentQty']
 
             if current_qty == 0:
-                self.logger.info(f"No open position for {symbol}")
+                #self.logger.info(f"No open position for {symbol}")
                 print(f"No open position for {symbol}")
                 return None
 
@@ -324,7 +324,7 @@ class BitMEXTestAPI:
             return order
 
         except Exception as e:
-            self.logger.error(f"Error closing position {position['symbol']}: {str(e)}")
+            #self.logger.error(f"Error closing position {position['symbol']}: {str(e)}")
             print(f"Error closing position {position['symbol']}: {str(e)}")
             return None
 
@@ -341,7 +341,7 @@ class BitMEXTestAPI:
             ).result()[0]
 
             if not positions:
-                self.logger.info("No positions to close")
+                #self.logger.info("No positions to close")
                 print("No positions to close")
                 return None
 
@@ -356,7 +356,7 @@ class BitMEXTestAPI:
             return True
 
         except Exception as e:
-            self.logger.error(f"Error closing positions: {str(e)}")
+            #self.logger.error(f"Error closing positions: {str(e)}")
             print(f"Error closing positions: {str(e)}")
             return None
             
@@ -364,7 +364,7 @@ class BitMEXTestAPI:
         try:
             order = self.client.Order.Order_cancel(orderID=order_id).result()[0]
             self.logger.info(f"🔴📈⁉️❗Position closed: {order['ordStatus']} | OrderID: {order['orderID']}")
-            #self.logger.info(f"Position closed: OrderID {order_id}")
+            ##self.logger.info(f"Position closed: OrderID {order_id}")
             time.sleep(2)
             self.get_profile_info()
             return order
@@ -379,52 +379,52 @@ class BitMEXTestAPI:
         :return: Final profile information or None if error
         """
         try:
-            self.logger.info("Starting test sequence")
+            #self.logger.info("Starting test sequence")
             print("Starting test sequence")
 
             # Initial profile
-            self.logger.info("=== INITIAL PROFILE ===")
+            #self.logger.info("=== INITIAL PROFILE ===")
             print("=== INITIAL PROFILE ===")
             self.get_profile_info()
 
             # Open long position
-            self.logger.info("=== OPENING LONG POSITION(BUY)🔵  ===")
+            #self.logger.info("=== OPENING LONG POSITION(BUY)🔵  ===")
             print("=== OPENING LONG POSITION (BUY)🔵 ===")
             self.open_test_position(side="Buy", quantity=1)
 
             # Wait and check profile
             wait_time = 1
-            self.logger.info(f"Waiting for {wait_time} seconds...")
+            #self.logger.info(f"Waiting for {wait_time} seconds...")
             print(f"Waiting for {wait_time} seconds...")
             time.sleep(wait_time)
             self.get_profile_info()
 
             # Open short position
-            self.logger.info("=== OPENING SHORT POSITION(SELL)🔴  ===")
+            #self.logger.info("=== OPENING SHORT POSITION(SELL)🔴  ===")
             print("=== OPENING SHORT POSITION(SELL)🔴 ===")
             self.open_test_position(side="Sell", quantity=1)
 
             # Wait and check profile
-            self.logger.info(f"Waiting for {wait_time} seconds...")
+            #self.logger.info(f"Waiting for {wait_time} seconds...")
             time.sleep(wait_time)
             self.get_profile_info()
 
             # Close all positions
-            self.logger.info("=== CLOSING ALL POSITIONS ===")
+            #self.logger.info("=== CLOSING ALL POSITIONS ===")
             print("=== CLOSING ALL POSITIONS ===")
             self.close_all_positions()
 
             # Final profile check
-            self.logger.info("=== FINAL PROFILE ===")
+            #self.logger.info("=== FINAL PROFILE ===")
             print("=== FINAL PROFILE ===")
             final_profile = self.get_profile_info()
 
-            self.logger.info("Test sequence completed successfully")
+            #self.logger.info("Test sequence completed successfully")
             print("Test sequence completed successfully")
             return final_profile
 
         except Exception as e:
-            self.logger.error(f"Error in test sequence: {str(e)}")
+            #self.logger.error(f"Error in test sequence: {str(e)}")
             print(f"Error in test sequence: {str(e)}")
             return None
 
