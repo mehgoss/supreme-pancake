@@ -346,7 +346,7 @@ class MateGreen:
             self.equity_curve = [self.initial_balance]
 
         signal_found = False
-        for iteration in range(2):
+        for iteration in range(5):
             sast_now = get_sast_time()
             self.logger.info(f"Scan {iteration + 1}/2 started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"Scan {iteration + 1}/2 started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
