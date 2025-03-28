@@ -184,7 +184,7 @@ class MateGreen:
                     'entry_idx': idx
                 })
                 self.current_trades.remove(trade)
-                self.logger .info(f"Exit signal: {direction} trade stopped out at {stop_loss}")
+                self.logger.info(f"Exit signal: {direction} trade stopped out at {stop_loss}")
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
                  (direction == 'short' and self.df['low'].iloc[current_idx] <= take_profit):
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
@@ -199,7 +199,7 @@ class MateGreen:
                     'entry_idx': idx
                 })
                 self.current_trades.remove(trade)
-                self.logger .info(f"Exit signal: {direction} trade took profit at {take_profit}")
+                self.logger.info(f"Exit signal: {direction} trade took profit at {take_profit}")
 
         # Check for new entry signals
         for idx, price, choch_type in self.choch_points:
@@ -234,7 +234,7 @@ class MateGreen:
                         })
                         self.current_trades.append((current_idx, entry_price, direction, stop_loss, take_profit, size))
                         potential_entries.remove(entry)
-                        self.logger .info(f"Entry signal: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
+                        self.logger.info(f"Entry signal: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
 
         self.equity_curve.append(self.current_balance)
         return signals
@@ -274,9 +274,9 @@ class MateGreen:
                 'risk_amount': self.risk_per_trade * self.current_balance
             }
             self.trades.append(trade)
-            self.logger .info(f"Opened {side} position at {price}, SL: {stop_loss}, TP: {take_profit}, Size: {position_size}")
+            self.logger.info(f"Opened {side} position at {price}, SL: {stop_loss}, TP: {take_profit}, Size: {position_size}")
         except Exception as e:
-            #self.logger .error(f"Error opening {side} position: {e}")
+            self.logger.error(f"Error opening {side} position: {e}")
 
     def execute_exit(self, signal):
         """Close a specific position using the BitMEX API, supporting multiple trades."""
@@ -306,10 +306,10 @@ class MateGreen:
                     self.current_balance += pl
                     self.equity_curve.append(self.current_balance)
                     self.current_trades.remove(trade)
-                    self.logger .info(f"Closed {direction} position at {price} due to {reason}, PnL: {pl}")
+                    self.logger.info(f"Closed {direction} position at {price} due to {reason}, PnL: {pl}")
                     break
         except Exception as e:
-            self.logger .error(f"Error closing position: {e}")
+            self.logger.error(f"Error closing position: {e}")
 
     def visualize_results(self, start_idx=0, end_idx=None):
         """Visualize results for Telegram notifications."""
@@ -336,7 +336,7 @@ class MateGreen:
 
     def calculate_performance(self):
         """Calculate performance metrics."""
-        if not self.trades:
+        if not self.trades or sum(t.get('pnl', 0) for t in self.trades) == 0:
             return {'total_trades': 0, 'win_rate': 0, 'profit_factor': 0, 'total_return_pct': 0, 'max_drawdown_pct': 0}
         winning_trades = [t for t in self.trades if t.get('pnl', 0) > 0]
         win_rate = len(winning_trades) / len(self.trades)
@@ -362,7 +362,7 @@ class MateGreen:
     def run(self, scan_interval=120):
         """Live trading loop with 2 scans, matching SMC.run()."""
         sast_now = get_sast_time()
-        self.logger .info(f"Starting MateGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.logger.info(f"Starting MateGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Starting MateGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
         try:
@@ -382,7 +382,7 @@ class MateGreen:
             print(f"Scan {iteration + 1}/2 started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
             if not self.get_market_data() or len(self.df) < self.lookback_period:
-                #self.logger .warning(f"Insufficient data: {len(self.df)} candles retrieved")
+                self.logger.warning(f"Insufficient data: {len(self.df)} candles retrieved")
                 if iteration < 1:
                     time.sleep(scan_interval)
                 continue
@@ -395,7 +395,7 @@ class MateGreen:
                 self.execute_signal(signal)
                 if signal['action'] == 'entry':
                     signal_found = True
-                    self.logger .info("Trading signal detected and trade executed🐻❎🐃")
+                    self.logger.info("Trading signal detected and trade executed🐻❎🐃")
 
             try:
                 profile = self.api.get_profile_info()
@@ -405,7 +405,7 @@ class MateGreen:
                     self.current_balance = api_balance
                     self.equity_curve.append(self.current_balance)
             except Exception as e:
-                self.logger .warning(f"Failed to sync balance with API: {e}")
+                self.logger.warning(f"Failed to sync balance with API: {e}")
 
             performance = self.calculate_performance()
             #self.logger .info(f"Performance snapshot: {performance}")
@@ -416,10 +416,10 @@ class MateGreen:
                     fig = self.visualize_results(start_idx=max(0, len(self.df) - lookback_candles))
                     caption = f"📸No signals found - Scan {iteration+1} at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}"
                     self.telegram_bot.send_photo(fig=fig, caption=caption)
-                    #self.logger .info(f"📸Sent no-signal analysis plot for scan {iteration+1}")
+                    #self.logger.info(f"📸Sent no-signal analysis plot for scan {iteration+1}")
                     plt.close(fig)
                 except Exception as e:
-                    self.logger .error(f"Failed to generate or send no-signal analysis: {e}")
+                    self.logger.error(f"Failed to generate or send no-signal analysis: {e}")
 
             if iteration < 1:
                 self.logger .info(f"Waiting {scan_interval} seconds for next scan...")
@@ -430,12 +430,12 @@ class MateGreen:
         if self.current_trades:  # Check if any trades are open
             try:
                 self.api.close_all_positions()
-                self.logger .info("All open positions closed")
+                self.logger.info("All open positions closed")
             except Exception as e:
-                self.logger .error(f"Failed to close positions on exit: {e}")
+                self.logger.error(f"Failed to close positions on exit: {e}")
 
         final_performance = self.calculate_performance()
-        self.logger .info(f"Final performance metrics: {final_performance}")
+        self.logger.info(f"Final performance metrics: {final_performance}")
 
         return signal_found, self.df
 
