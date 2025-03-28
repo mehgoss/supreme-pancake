@@ -260,11 +260,12 @@ class BitMEXTestAPI:
         """
         try:
             self.logger.info(f"🎉🎉🎉🎀Opening test {side} position for {quantity} contracts for {self.symbol}🎀🎉🎉🎉")
+            normalized_side = "Sell" if str(side).strip().lower() in ["short", "sell"] else "Buy"
 
             # Execute the order
             order = self.client.Order.Order_new(
                 symbol = self.symbol if '-' not in self.symbol else self.symbol.replace('-', '') ,
-                side=" "Sell" if str(side).strip() == "Short" or str(side).strip() == 'short' or str(side).strip() == "Sell" else "Buy",
+                side= normalized_side, 
                 orderQty=quantity if quantity > 50 else int(quantity)+1*100,
                 ordType=order_type
             ).result()[0]
