@@ -1,12 +1,13 @@
+
 import os
 import time
 import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 import yfinance as yf
-from TeleLogBot import configure_logging
 from collections import deque
 import matplotlib.pyplot as plt
+import mplfinance as mpf
 import pytz
 from datetime import datetime, timedelta
 
@@ -18,7 +19,7 @@ def get_sast_time():
     return utc_now.replace(tzinfo=pytz.utc).astimezone(sast)
 
 class MateGreen:
-    def __init__(self, api_key, api_secret, test=True, symbol="BTC-USD", timeframe="5m",
+    def __init__(self, api_key, api_secret, test=True, symbol="SOL-USD", timeframe="5m",
                  initial_capital=10000, risk_per_trade=0.02, rr_ratio=2, lookback_period=20,
                  fvg_threshold=0.003, telegram_bot=None, api=None, log=None):
         self.api_key = api_key
@@ -66,7 +67,7 @@ class MateGreen:
 
             # Handle multi-index columns if present
             if isinstance(data.columns, pd.MultiIndex):
-                data.columns = [col[0].lower() for col in data.columns]  # Flatten multi-index
+                data.columns = [col[0].lower() for col in data.columns]
             else:
                 data.columns = [col.lower() for col in data.columns]
 
@@ -75,6 +76,8 @@ class MateGreen:
                 self.logger.error(f"Missing required columns. Available: {data.columns}")
                 return False
 
+            # Ensure the index is datetime
+            data.index = pd.to_datetime(data.index)
             data['higher_high'] = False
             data['lower_low'] = False
             data['bos_up'] = False
@@ -269,27 +272,44 @@ class MateGreen:
     def visualize_results(self, start_idx=0, end_idx=None):
         if end_idx is None:
             end_idx = len(self.df)
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10), height_ratios=[3, 1], sharex=False)
-
-        # Price chart
         subset = self.df.iloc[start_idx:end_idx]
-        ax1.plot(subset.index, subset['close'], label='Close Price', color='black', linewidth=1)
+
+        # Create a figure with two subplots
+        fig = plt.figure(figsize=(15, 10))
+        gs = fig.add_gridspec(2, 1, height_ratios=[3, 1])
+
+        # Candlestick chart (top subplot)
+        ax1 = fig.add_subplot(gs[0, 0])
+        # Prepare data for mplfinance (requires OHLC columns)
+        mpf.plot(
+            subset,
+            type='candle',
+            style='charles',
+            ax=ax1,
+            ylabel='Price',
+            show_nontrading=False,
+            datetime_format='%Y-%m-%d %H:%M'
+        )
+        ax1.set_title(f"{self.symbol} - SMC Analysis")
+
+        # Plot trade markers on the candlestick chart
         for trade in self.trades:
             if start_idx <= trade['entry_index'] < end_idx:
                 color = 'green' if trade['type'] == 'long' else 'red'
                 marker = '^' if trade['type'] == 'long' else 'v'
-                ax1.scatter(trade['entry_index'], trade['entry_price'], color=color, marker=marker, s=120, zorder=5)
+                # Convert index to datetime for plotting
+                entry_time = subset.index[trade['entry_index'] - start_idx]
+                ax1.scatter(entry_time, trade['entry_price'], color=color, marker=marker, s=120, zorder=5)
                 if 'exit_index' in trade and trade['exit_index'] < end_idx:
                     color = 'green' if trade['pnl'] > 0 else 'red'
-                    ax1.scatter(trade['exit_index'], trade['exit_price'], color=color, marker='o', s=120, zorder=5)
-                    ax1.plot([trade['entry_index'], trade['exit_index']],
+                    exit_time = subset.index[trade['exit_index'] - start_idx]
+                    ax1.scatter(exit_time, trade['exit_price'], color=color, marker='o', s=120, zorder=5)
+                    ax1.plot([entry_time, exit_time],
                              [trade['entry_price'], trade['exit_price']],
                              color=color, linewidth=1, linestyle='--')
-        ax1.set_title(f"{self.symbol} - SMC Analysis")
-        ax1.legend(['Close Price'], loc='best')
-        ax1.grid(True, alpha=0.3)
 
-        # Equity curve
+        # Equity curve (bottom subplot)
+        ax2 = fig.add_subplot(gs[1, 0])
         equity_indices = range(len(self.equity_curve))
         ax2.plot(equity_indices, self.equity_curve, label='Equity Curve', color='blue', linewidth=1)
         ax2.set_title("Equity Curve")
@@ -397,7 +417,7 @@ if __name__ == "__main__":
         api_key=os.getenv("BITMEX_API_KEY"),
         api_secret=os.getenv("BITMEX_API_SECRET"),
         test=True,
-        symbol="BTC-USD",
+        symbol="SOL-USD",  # Changed to SOL-USD to match your chart
         timeframe="5m",
         telegram_bot=telegram_bot,
         log=logger
