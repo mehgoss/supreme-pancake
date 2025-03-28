@@ -209,6 +209,7 @@ class MateGreen:
                         self.current_trades.append((current_idx, entry_price, direction, stop_loss, take_profit, size))
                         potential_entries.remove(entry)
                         self.logger.info(f"Entry signal: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
+                        
 
         self.equity_curve.append(self.current_balance)
         return signals
@@ -396,6 +397,7 @@ class MateGreen:
                 self.logger.info(f"Waiting {scan_interval} seconds for next scan...")
                 print(f"Waiting {scan_interval} seconds for next scan...")
                 time.sleep(scan_interval)
+                iteration=+1
 
         self.logger.info("Completed 2 scans, stopping MateGreen")
         final_performance = self.calculate_performance()
