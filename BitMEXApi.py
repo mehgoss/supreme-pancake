@@ -67,7 +67,7 @@ class BitMEXTestAPI:
         :param symbol: Trading symbol (default SOL-USD)
         """
         try:
-            ##self.logger= Log
+            self.logger= Log
             self.client = bitmex.bitmex(
                 test=test,
                 api_key=api_key,
