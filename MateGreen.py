@@ -73,7 +73,7 @@ class MateGreen:
                 self.logger.warning("No data retrieved from yfinance")
                 return False
             self.df = data.reset_index()
-            self.df.columns = [col.lower() for col in self.df.columns]
+            self.df.columns = [col.lower() for col in self.df.columns[0]]
             self.df = self.df.rename(columns={'date': 'datetime'})
             self.logger.info(f"Retrieved {len(self.df)} candles from yfinance")
             return True
