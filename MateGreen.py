@@ -56,30 +56,60 @@ class MateGreen:
         self.logger.info(f"MateGreen initialized for {symbol} on {timeframe} timeframe")
 
     def get_market_data(self):
-        """Fetch market data from yfinance."""
+        """
+        Fetch market data from BitMEX API or fallback to yfinance.
+        """
         try:
-            self.logger.info(f"Fetching {self.symbol} market data from yfinance")
+            logger.info(f"Fetching {self.symbol} market data from BitMEX")
+            data = self.api.get_candle(symbol=self.symbol, timeframe=self.timeframe)
+            df = pd.DataFrame(data)
+            logger.info(f"Retrieved {len(df)} candles from BitMEX")
+            self.df = df
+            self.df.columns = [col.lower() for col in self.df.columns]
+            self.df['higher_high'] = False
+            self.df['lower_low'] = False
+            self.df['bos_up'] = False
+            self.df['bos_down'] = False
+            self.df['choch_up'] = False
+            self.df['choch_down'] = False
+            self.df['bullish_fvg'] = False
+            self.df['bearish_fvg'] = False
+            return df
+        except Exception as e:
+            logger.warning(f"Failed to get data from BitMEX API: {str(e)}. Falling back to yfinance.")
+            crypto_ticker = self.symbol if self.symbol.endswith('USD') else f"{self.symbol}-USD"
             sast_now = get_sast_time()
             end_date = sast_now
             start_date = end_date - timedelta(days=2)
-            crypto_ticker = self.symbol if "-" in self.symbol else f"{self.symbo[:2]}-{self.symbo[2:]}"
-            data = yf.download(
-                crypto_ticker,
-                start=start_date.strftime('%Y-%m-%d'),
-                end=end_date.strftime('%Y-%m-%d'),
-                interval=self.timeframe
-            )
-            if data.empty:
-                self.logger.warning("No data retrieved from yfinance")
-                return False
-            self.df = data.reset_index()
-            self.df.columns = [col.lower() for col in self.df.columns[0]]
-            self.df = self.df.rename(columns={'date': 'datetime'})
-            self.logger.info(f"Retrieved {len(self.df)} candles from yfinance")
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to get data from yfinance: {e}")
-            return False
+            try:
+                data = yf.download(
+                    crypto_ticker,
+                    start=start_date.strftime('%Y-%m-%d'),
+                    end=end_date.strftime('%Y-%m-%d'),
+                    interval=self.timeframe
+                )
+                logger.info(f"Retrieved {len(data)} candles from yfinance")
+                self.df = data
+                if not data.empty:
+                    if isinstance(self.df.columns, pd.MultiIndex):
+                        self.df.columns = [col[0].lower() if col[1] else col[0].lower() for col in self.df.columns]
+                    else:
+                        self.df.columns = [col.lower() for col in self.df.columns]
+                    required_columns = ['open', 'high', 'low', 'close']
+                    if all(col in self.df.columns for col in required_columns):
+                        self.df['higher_high'] = False
+                        self.df['lower_low'] = False
+                        self.df['bos_up'] = False
+                        self.df['bos_down'] = False
+                        self.df['choch_up'] = False
+                        self.df['choch_down'] = False
+                        self.df['bullish_fvg'] = False
+                        self.df['bearish_fvg'] = False
+                return data
+            except Exception as e:
+                logger.error(f"yfinance fallback failed: {str(e)}")
+                return pd.DataFrame()
+
 
     def identify_swing_points(self):
         window = min(self.lookback_period // 2, 3)
