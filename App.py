@@ -7,8 +7,8 @@ from datetime import datetime
 
 # Ensure the necessary imports are available
 try:
-    from TeleLogBot import configure_logging
-    from MateGreen import MateGreen
+    from TeleBotLog import configure_logging
+    from Ohkay import MateGreen
     from BitMEXApi import BitMEXTestAPI
     
 except ImportError as e:
@@ -29,7 +29,7 @@ def get_sast_time():
     sast = pytz.timezone('Africa/Johannesburg')
     return utc_now.replace(tzinfo=pytz.utc).astimezone(sast)
 
-def long_running_task(logger):
+def long_running_task(logger,bot):
     """
     Runs the trading strategy for approximately 3 minutes
     """
@@ -52,7 +52,8 @@ def long_running_task(logger):
             symbol="SOL-USD",
             timeframe="5m",
             risk_per_trade=0.02,
-            log=logger
+            log=logger,
+            telegram_bot=bot
         )
         
         # Log start time
@@ -83,10 +84,10 @@ def main():
     Main function to run the script
     """
     # Configure logging
-    logger = configure_logging(TOKEN, CHAT_ID)
+    logger, bot = configure_logging(TOKEN, CHAT_ID)
     
     logger.info("Starting trading script")
-    long_running_task(logger)
+    long_running_task(logger,bot)
     logger.info("Script finished")
 
 if __name__ == "__main__":
