@@ -34,7 +34,7 @@ def long_running_task(logger,bot):
     Runs the trading strategy for approximately 3 minutes
     """
     start_time = time.time()
-    max_runtime = 3 * 60  # 3 minutes in seconds
+    max_runtime = 60 * 60  # 3 minutes in seconds
     
     try:
         api = BitMEXTestAPI(
