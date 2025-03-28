@@ -53,7 +53,7 @@ def long_running_task(logger,bot):
             timeframe="5m",
             risk_per_trade=0.02,
             log=logger,
-            telegram_bot=bot
+            telegram_bot=bot, 
             api=api
         )
         
