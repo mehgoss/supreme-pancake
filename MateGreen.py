@@ -1,10 +1,10 @@
-
 import os
 import time
 import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 import yfinance as yf
+from TeleLogBot import configure_logging
 from collections import deque
 import matplotlib.pyplot as plt
 import mplfinance as mpf
@@ -280,7 +280,6 @@ class MateGreen:
 
         # Candlestick chart (top subplot)
         ax1 = fig.add_subplot(gs[0, 0])
-        # Prepare data for mplfinance (requires OHLC columns)
         mpf.plot(
             subset,
             type='candle',
@@ -291,22 +290,6 @@ class MateGreen:
             datetime_format='%Y-%m-%d %H:%M'
         )
         ax1.set_title(f"{self.symbol} - SMC Analysis")
-
-        # Plot trade markers on the candlestick chart
-        for trade in self.trades:
-            if start_idx <= trade['entry_index'] < end_idx:
-                color = 'green' if trade['type'] == 'long' else 'red'
-                marker = '^' if trade['type'] == 'long' else 'v'
-                # Convert index to datetime for plotting
-                entry_time = subset.index[trade['entry_index'] - start_idx]
-                ax1.scatter(entry_time, trade['entry_price'], color=color, marker=marker, s=120, zorder=5)
-                if 'exit_index' in trade and trade['exit_index'] < end_idx:
-                    color = 'green' if trade['pnl'] > 0 else 'red'
-                    exit_time = subset.index[trade['exit_index'] - start_idx]
-                    ax1.scatter(exit_time, trade['exit_price'], color=color, marker='o', s=120, zorder=5)
-                    ax1.plot([entry_time, exit_time],
-                             [trade['entry_price'], trade['exit_price']],
-                             color=color, linewidth=1, linestyle='--')
 
         # Equity curve (bottom subplot)
         ax2 = fig.add_subplot(gs[1, 0])
@@ -349,9 +332,18 @@ class MateGreen:
         self.logger.info(f"Starting MateGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Starting MateGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        self.initial_balance = self.initial_capital
-        self.current_balance = self.initial_balance
-        self.equity_curve = [self.initial_balance]
+        # Use api.get_profile_info() to set initial balance
+        try:
+            profile = self.api.get_profile_info()
+            self.initial_balance = float(profile['balance']['usd'])
+            self.current_balance = self.initial_balance
+            self.equity_curve = [self.initial_balance]
+            self.logger.info(f"Initial balance set to {self.initial_balance:.2f} from API")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize balance from API: {e}. Falling back to initial_capital.")
+            self.initial_balance = self.initial_capital
+            self.current_balance = self.initial_balance
+            self.equity_curve = [self.initial_balance]
 
         signal_found = False
         for iteration in range(2):
@@ -417,10 +409,11 @@ if __name__ == "__main__":
         api_key=os.getenv("BITMEX_API_KEY"),
         api_secret=os.getenv("BITMEX_API_SECRET"),
         test=True,
-        symbol="SOL-USD",  # Changed to SOL-USD to match your chart
+        symbol="SOL-USD",
         timeframe="5m",
         telegram_bot=telegram_bot,
-        log=logger
+        log=logger,
+        api=None  # Replace with your actual API client if available
     )
     signal_found, price_data = trader.run()
     print(f"Signal found: {signal_found}, Data length: {len(price_data)}")
