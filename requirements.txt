@@ -1,0 +1,22 @@
+# Telegram and Bot Libraries
+python-telegram-bot=>20.7
+telebot
+telegram
+
+# Trading and Financial Libraries
+bitmex
+yfinance
+
+# Data Manipulation and Visualization
+matplotlib
+numpy
+pandas
+
+# Utility Libraries
+python-dotenv
+pytz
+
+# Optional: Logging and Environment Support (already native to Python, but listed for completeness)
+# logging (native)
+# os (native)
+# sys (native)
