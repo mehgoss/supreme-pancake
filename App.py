@@ -8,7 +8,7 @@ from datetime import datetime
 # Ensure the necessary imports are available
 try:
     from TeleLogBot import configure_logging
-    from Ohkay import MateGreen
+    from MateGreen import MateGreen
     from BitMEXApi import BitMEXTestAPI
     
 except ImportError as e:
