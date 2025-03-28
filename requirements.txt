@@ -1,5 +1,5 @@
 # Telegram and Bot Libraries
-python-telegram-bot=>20.7
+python-telegram-bot >= 20.7
 telebot
 telegram
 
