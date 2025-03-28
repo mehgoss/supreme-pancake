@@ -16,9 +16,9 @@ except ImportError as e:
     sys.exit(1)
 
 # Environment Variables (consider using a more secure method in production)
-TOKEN = os.getenv("API_SECRET")
-CHAT_ID = os.getenv("API_SECRET")
-API_KEY = os.getenv("API_SECRET")
+TOKEN = os.getenv("TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
+API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
 def get_sast_time():
