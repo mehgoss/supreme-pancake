@@ -168,6 +168,7 @@ class MateGreen:
                         fig = self.visualize_results(start_idx=max(0, len(self.df) - lookback_candles))
                         caption = f"📸Scan {iteration+1} at {sast_now.strftime('%Y-%m-%d %H:%M:%S')} - Signal: {signal_found}"
                         self.telegram_bot.send_photo(fig=fig, caption=caption)
+                        time.sleep(5)
                         self.logger.info(f"📸Sent analysis plot for scan {iteration+1}")
                         plt.close(fig)
                     except Exception as e:
