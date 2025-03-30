@@ -286,7 +286,7 @@ class BitMEXTestAPI:
                 self.logger.warning("Could not fetch current market price. Skipping order.")
                 return None
 
-            
+            entry_order = None
             if not int(pos['current_qty']) >= 20 :
                 # Execute the entry order
                 entry_order = self.client.Order.Order_new(
@@ -301,7 +301,7 @@ class BitMEXTestAPI:
                 self.logger.info(f"Entry order details: {side} {abs(quantity)} contracts at {entry_order.get('price', 'market price')}")
 
             else:
-                self.logger.warning(f"Quantity exceeds limits wait for positions{pos['current_qty']} to be less than 20")
+                self.logger.warning(f"Quantity exceeds limits wait for positions {pos['current_qty']} waiting for quantity to be less than 20")
 
 
             # Wait for entry order to potentially fill (adjust time as needed)
