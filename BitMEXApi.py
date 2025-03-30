@@ -238,7 +238,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error retrieving candle data: {str(e)}")
             return None
 
-def open_test_position(self, side="Buy", quantity=100, order_type="Market", take_profit_price=None, stop_loss_price=None):
+    def open_test_position(self, side="Buy", quantity=100, order_type="Market", take_profit_price=None, stop_loss_price=None):
         """
         Open a test trading position with optional Take Profit and Stop Loss orders.
 
@@ -371,119 +371,4 @@ def open_test_position(self, side="Buy", quantity=100, order_type="Market", take
                 ordType="Market"
             ).result()[0]
 
-            self.logger.info(f"🔴📈⁉️❗Position closed: {order['ordStatus']} | OrderID: {order['orderID']}")
-
-            return order
-
-        except bitmex.exceptions.BitMEXAPIError as e:
-            self.logger.error(f"BitMEX API Error closing position {position['symbol']}: {e}")
-            return None
-        except Exception as e:
-            self.logger.error(f"Error closing position {position['symbol']}: {str(e)}")
-            return None
-
-    def close_all_positions(self):
-        """
-        Close all open positions for the current symbol
-
-        :return: True if successful, None if error
-        """
-        try:
-            # Get current positions
-            positions = self.client.Position.Position_get(
-                filter=json.dumps({"symbol": self.symbol})
-            ).result()[0]
-
-            if not positions:
-                self.logger.info("No positions to close")
-                return None
-
-            # Close each position
-            for position in positions:
-                self._close_position(position)
-
-            # Wait for orders to settle
-            time.sleep(2)
-            self.get_profile_info()
-
-            return True
-
-        except bitmex.exceptions.BitMEXAPIError as e:
-            self.logger.error(f"BitMEX API Error closing positions: {e}")
-            return None
-        except Exception as e:
-            self.logger.error(f"Error closing positions: {str(e)}")
-            return None
-
-    def close_position(self, order_id):
-        try:
-            order = self.client.Order.Order_cancel(orderID=order_id).result()[0]
-            self.logger.info(f"🔴📈⁉️❗Position closed: {order['ordStatus']} | OrderID: {order['orderID']}")
-            time.sleep(2)
-            self.get_profile_info()
-            return order
-        except bitmex.exceptions.BitMEXAPIError as e:
-            self.logger.error
-
-    def run_test_sequence(self):
-        """
-        Run a comprehensive test sequence of trading operations
-
-        :return: Final profile information or None if error
-        """
-        try:
-            #self.logger.info("Starting test sequence")
-            print("Starting test sequence")
-
-            # Initial profile
-            #self.logger.info("=== INITIAL PROFILE ===")
-            print("=== INITIAL PROFILE ===")
-            self.get_profile_info()
-
-            # Open long position
-            #self.logger.info("=== OPENING LONG POSITION(BUY)🔵  ===")
-            print("=== OPENING LONG POSITION (BUY)🔵 ===")
-            self.open_test_position(side="Buy", quantity=1)
-
-            # Wait and check profile
-            wait_time = 1
-            #self.logger.info(f"Waiting for {wait_time} seconds...")
-            print(f"Waiting for {wait_time} seconds...")
-            time.sleep(wait_time)
-            self.get_profile_info()
-
-            # Open short position
-            #self.logger.info("=== OPENING SHORT POSITION(SELL)🔴  ===")
-            print("=== OPENING SHORT POSITION(SELL)🔴 ===")
-            self.open_test_position(side="Sell", quantity=1)
-
-            # Wait and check profile
-            #self.logger.info(f"Waiting for {wait_time} seconds...")
-            time.sleep(wait_time)
-            self.get_profile_info()
-
-            # Close all positions
-            #self.logger.info("=== CLOSING ALL POSITIONS ===")
-            print("=== CLOSING ALL POSITIONS ===")
-            self.close_all_positions()
-
-            # Final profile check
-            #self.logger.info("=== FINAL PROFILE ===")
-            print("=== FINAL PROFILE ===")
-            final_profile = self.get_profile_info()
-
-            #self.logger.info("Test sequence completed successfully")
-            print("Test sequence completed successfully")
-            return final_profile
-
-        except Exception as e:
-            #self.logger.error(f"Error in test sequence: {str(e)}")
-            print(f"Error in test sequence: {str(e)}")
-            return None
-
-# Example usage (optional, for testing):
-if __name__ == "__main__":
-    api_key = os.getenv("BITMEX_API_KEY")
-    api_secret = os.getenv("BITMEX_API_SECRET")
-    api = BitMEXTestAPI(api_key, api_secret, test=True, symbol="BTC-USD")
-    api.run_test_sequence()
+            self.logger.info(f"🔴📈⁉️❗Position closed: {order['ordStatus']} | OrderID
