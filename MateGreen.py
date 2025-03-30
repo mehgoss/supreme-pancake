@@ -245,19 +245,20 @@ class MateGreen:
         position_size = signal['position_size']
         entry_idx = signal['entry_idx']
         sast_now = get_sast_time()
+        pos_side = side if str(side).lower() in ['short','sell'] else "Buy"
+        pos_quan = quantity if int(quantity) > 1 else int(quantity) + 1*2 
+        order = self.api.open_test_position(self,pos_side, pos_quan, order_type="Market", take_profit_price=take_profit, stop_loss_price=stop_loss)
         trade = {
             'entry_time': sast_now.strftime('%Y-%m-%d %H:%M:%S'),
             'entry_price': price,
-            'entry_index': entry_idx,
+            'entry_index': order['orderID'],
             'type': side,
             'position_size': position_size,
             'stop_loss': stop_loss,
             'take_profit': take_profit,
             'risk_amount': self.risk_per_trade * self.current_balance
         }
-        pos_side = side if str(side).lower() in ['short','sell'] else "Buy"
-        pos_quan = quantity if int(quantity) > 1 else int(quantity) + 1*2 
-        self.api.open_test_position(self,pos_side pos_quan, order_type="Market")
+        
         self.logger.info(f"Opened {pos_side} position at {price}, SL: {stop_loss}, TP: {take_profit}, Size: {pos_quan}")
 
     def execute_exit(self, signal):
