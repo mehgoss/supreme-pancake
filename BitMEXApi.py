@@ -304,32 +304,32 @@ class BitMEXTestAPI:
             time.sleep(1)
 
             # Place Take Profit order if a price is provided
-            if take_profit_price is not None:
-                tp_order = self.client.Order.Order_new(
-                    symbol=self.symbol,
-                    side=opposite_side,
-                    orderQty=abs(quantity),
-                    stopPx=take_profit_price,
-                    ordType='MarketIfTouched',  # Consider 'LimitIfTouched' for more price control
-                    execInst='Close',
-                    text='LastPrice'
-                ).result()[0]
-                self.logger.info(f"Take Profit order placed: {tp_order['orderID']} at trigger price: {take_profit_price}")
+            # if take_profit_price is not None:
+            #     tp_order = self.client.Order.Order_new(
+            #         symbol=self.symbol,
+            #         side=opposite_side,
+            #         orderQty=abs(quantity),
+            #         stopPx=take_profit_price,
+            #         ordType='MarketIfTouched',  # Consider 'LimitIfTouched' for more price control
+            #         execInst='Close',
+            #         text='LastPrice'
+            #     ).result()[0]
+            #     self.logger.info(f"Take Profit order placed: {tp_order['orderID']} at trigger price: {take_profit_price}")
 
             # Place Stop Loss order if a price is provided
-            if stop_loss_price is not None:
-                sl_order = self.client.Order.Order_new(
-                    symbol=self.symbol,
-                    side=opposite_side,
-                    orderQty=abs(quantity),
-                    stopPx=stop_loss_price,
-                    ordType='Stop',  # Consider 'StopLimit' for more price control
-                    execInst='Close',
-                    text='LastPrice'
-                ).result()[0]
-                self.logger.info(f"Stop Loss order placed: {sl_order['orderID']} at trigger price: {stop_loss_price}")
+            # if stop_loss_price is not None:
+            #     sl_order = self.client.Order.Order_new(
+            #         symbol=self.symbol,
+            #         side=opposite_side,
+            #         orderQty=abs(quantity),
+            #         stopPx=stop_loss_price,
+            #         ordType='Stop',  # Consider 'StopLimit' for more price control
+            #         execInst='Close',
+            #         text='LastPrice'
+            #     ).result()[0]
+            #     self.logger.info(f"Stop Loss order placed: {sl_order['orderID']} at trigger price: {stop_loss_price}")
 
-            # Wait for orders to settle
+            # # Wait for orders to settle
             time.sleep(2)
             self.get_profile_info()
 
