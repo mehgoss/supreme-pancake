@@ -1,4 +1,3 @@
-# BitMEX Trading Strategy Backtesting Workflow
 name: BitMEX v Strategy Backtest
 
 on:
@@ -10,7 +9,7 @@ on:
       - develop
   # Scheduled trigger every 10 minutes
   schedule:
-    - cron: '*/ 60 * * * *'  # Run every 10 minutes
+    - cron: '*/60 * * * *'  # Run every 1 hour
 
 permissions:
   contents: read
@@ -23,7 +22,7 @@ concurrency:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # Maximum runtime of 5 minutes
+    timeout-minutes: 50  # Maximum runtime of 50 minutes
     
     steps:
     - name: Checkout repository
@@ -46,7 +45,7 @@ jobs:
         API_KEY: ${{ secrets.API_KEY }}
         API_SECRET: ${{ secrets.API_SECRET }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        MAX_RUNTIME: 4800  # 30 minutes in seconds
+        MAX_RUNTIME: 1800  # 30 minutes in seconds
       run: |
         python App.py
 
