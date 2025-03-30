@@ -335,9 +335,9 @@ class BitMEXTestAPI:
 
             return entry_order
 
-        except bitmex.exceptions.BitMEXAPIError as e:
-            self.logger.error(f"BitMEX API Error opening position: {e}")
-            return None
+        #except bitmex.exceptions.BitMEXAPIError as e:
+            #self.logger.error(f"BitMEX API Error opening position: {e}")
+            #return None
         except Exception as e:
             self.logger.error(f"Error opening test position: {str(e)}")
             return None
