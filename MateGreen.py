@@ -144,6 +144,15 @@ class MateGreen:
         current_idx = len(self.df) - 1
         current_price = self.df['close'].iloc[current_idx]
 
+        # Check the total risk of current open trades
+        total_risk_amount = 0
+        for trade in self.current_trades:
+            _, entry_price, direction, stop_loss, _, size = trade
+            risk_per_trade = abs(entry_price - stop_loss) * size
+            total_risk_amount += risk_per_trade
+
+        max_total_risk = self.current_balance * 0.20  # 20% of current balance
+
         for trade in list(self.current_trades):
             idx, entry_price, direction, stop_loss, take_profit, size = trade
             if (direction == 'long' and self.df['low'].iloc[current_idx] <= stop_loss) or \
@@ -197,19 +206,24 @@ class MateGreen:
                         stop_loss = entry_price - stop_dist * 1.1 if direction == 'long' else entry_price + stop_dist * 1.1
                         take_profit = entry_price + stop_dist * self.rr_ratio if direction == 'long' else entry_price - stop_dist * self.rr_ratio
                         size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
-                        signals.append({
-                            'action': 'entry',
-                            'side': direction,
-                            'price': entry_price,
-                            'stop_loss': stop_loss,
-                            'take_profit': take_profit,
-                            'position_size': int(size),
-                            'entry_idx': entry_idx
-                        })
-                        self.current_trades.append((current_idx, entry_price, direction, stop_loss, take_profit, size))
-                        potential_entries.remove(entry)
-                        self.logger.info(f"Entry signal: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
-                        
+                        risk_of_new_trade = abs(entry_price - stop_loss) * size
+
+                        # Check if the new trade will exceed the maximum total risk
+                        if total_risk_amount + risk_of_new_trade <= max_total_risk:
+                            signals.append({
+                                'action': 'entry',
+                                'side': direction,
+                                'price': entry_price,
+                                'stop_loss': stop_loss,
+                                'take_profit': take_profit,
+                                'position_size': int(size),
+                                'entry_idx': entry_idx
+                            })
+                            self.current_trades.append((current_idx, entry_price, direction, stop_loss, take_profit, size))
+                            potential_entries.remove(entry)
+                            self.logger.info(f"Entry signal: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
+                        else:
+                            self.logger.warning(f"Skipping entry signal for {direction} at {entry_price} to avoid exceeding 20% risk limit. Current total risk: {total_risk_amount:.2f}, Potential new risk: {risk_of_new_trade:.2f}, Max risk: {max_total_risk:.2f}")
 
         self.equity_curve.append(self.current_balance)
         return signals
@@ -328,12 +342,12 @@ class MateGreen:
             'max_drawdown_pct': max_drawdown * 100
         }
 
-    def run(self, scan_interval=120):
+    def run(self, scan_interval=120, max_runtime_minutes=45, sleep_interval_minutes=5, iterations_before_sleep=5):
+        start_time = time.time()
         sast_now = get_sast_time()
         self.logger.info(f"Starting MateGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Starting MateGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        # Use api.get_profile_info() to set initial balance
         try:
             profile = self.api.get_profile_info()
             self.initial_balance = float(profile['balance']['usd'])
@@ -347,10 +361,11 @@ class MateGreen:
             self.equity_curve = [self.initial_balance]
 
         signal_found = False
-        for iteration in range(5):
+        iteration = 0
+        while (time.time() - start_time) < max_runtime_minutes * 60:
             sast_now = get_sast_time()
-            self.logger.info(f"Scan {iteration + 1}/2 started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"Scan {iteration + 1}/2 started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
+            self.logger.info(f"Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
             if not self.get_market_data() or len(self.df) < self.lookback_period:
                 self.logger.warning(f"Insufficient data: {len(self.df)} candles retrieved")
@@ -365,9 +380,10 @@ class MateGreen:
                         except Exception as e:
                             self.logger.error(f"Telegram error sending insufficient data plot: {str(e)}")
                         plt.close(fig)
-                    self.logger.info(f"Waiting {scan_interval} seconds for next scan...")
-                    print(f"Waiting {scan_interval} seconds for next scan...")
-                    time.sleep(scan_interval)
+                self.logger.info(f"Waiting {scan_interval} seconds for next scan...")
+                print(f"Waiting {scan_interval} seconds for next scan...")
+                time.sleep(scan_interval)
+                iteration += 1
                 continue
 
             self.identify_swing_points()
@@ -383,7 +399,7 @@ class MateGreen:
             performance = self.calculate_performance()
             self.logger.info(f"Performance snapshot: {performance}")
 
-            if iteration < 1:
+            if iteration < 1: # Keep the initial plot for the first iteration
                 if self.telegram_bot and not self.df.empty:
                     try:
                         lookback_candles = 48 if self.timeframe == "5m" else 16
@@ -394,16 +410,52 @@ class MateGreen:
                         plt.close(fig)
                     except Exception as e:
                         self.logger.error(f"Telegram error sending chart: {str(e)}")
-                self.logger.info(f"Waiting {scan_interval} seconds for next scan...")
-                print(f"Waiting {scan_interval} seconds for next scan...")
-                time.sleep(scan_interval)
-                iteration=+1
 
-        self.logger.info("Completed 2 scans, stopping MateGreen")
+            self.logger.info(f"Waiting {scan_interval} seconds for next scan...")
+            print(f"Waiting {scan_interval} seconds for next scan...")
+            time.sleep(scan_interval)
+            iteration += 1
+
+            # Implement the sleep after a certain number of iterations
+            if iteration % iterations_before_sleep == 0 and iteration > 0:
+                sleep_duration = sleep_interval_minutes * 60
+                self.logger.info(f"Pausing for {sleep_interval_minutes} minutes after {iteration} iterations...")
+                print(f"Pausing for {sleep_interval_minutes} minutes...")
+                sleep_start_time = time.time()
+                while (time.time() - sleep_start_time) < sleep_duration and (time.time() - start_time) < max_runtime_minutes * 60:
+                    time.sleep(1) # Sleep in smaller increments to check for max runtime
+                self.logger.info("Resuming after pause.")
+                print("Resuming...")
+                if (time.time() - start_time) >= max_runtime_minutes * 60:
+                    self.logger.info("Maximum runtime reached during pause. Stopping.")
+                    print("Maximum runtime reached during pause. Stopping.")
+                    break
+
+            if (time.time() - start_time) >= max_runtime_minutes * 60:
+                self.logger.info("Maximum runtime reached. Stopping.")
+                print("Maximum runtime reached. Stopping.")
+                break
+
+        self.logger.info("MateGreen stopped.")
         final_performance = self.calculate_performance()
         self.logger.info(f"Final performance metrics: {final_performance}")
 
         return signal_found, self.df
+
+if __name__ == "__main__":
+    logger, telegram_bot = configure_logging(os.getenv("TOKEN"), os.getenv("CHAT_ID"))
+    trader = MateGreen(
+        api_key=os.getenv("BITMEX_API_KEY"),
+        api_secret=os.getenv("BITMEX_API_SECRET"),
+        test=True,
+        symbol="SOL-USD",
+        timeframe="5m",
+        telegram_bot=telegram_bot,
+        log=logger,
+        api=None
+    )
+    signal_found, price_data = trader.run(max_runtime_minutes=30, sleep_interval_minutes=5, iterations_before_sleep=5)
+    print(f"Signal found: {signal_found}, Data length: {len(price_data)}")
 
 if __name__ == "__main__":
     logger, telegram_bot = configure_logging(os.getenv("TOKEN"), os.getenv("CHAT_ID"))
