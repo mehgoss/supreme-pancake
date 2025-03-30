@@ -238,18 +238,21 @@ class BitMEXTestAPI:
             self.logger.error(f"Error retrieving candle data: {str(e)}")
             return None
 
-    def open_test_position(self, side="Buy", quantity=100, order_type="Market"):
+def open_test_position(self, side="Buy", quantity=100, order_type="Market", take_profit_price=None, stop_loss_price=None):
         """
-        Open a test trading position
+        Open a test trading position with optional Take Profit and Stop Loss orders.
 
         :param side: Buy or Sell
         :param quantity: Number of contracts
         :param order_type: Type of order (default Market)
-        :return: Order details or None if error
+        :param take_profit_price: Price at which to place a Take Profit market order (optional)
+        :param stop_loss_price: Price at which to place a Stop Loss market order (optional)
+        :return: Order details for the entry order, or None if error
         """
         try:
             self.logger.info(f"Attempting to open {side} position for {quantity} contracts for {self.symbol}")
             normalized_side = "Sell" if str(side).strip().lower() in ["short", "sell"] else "Buy"
+            opposite_side = "Buy" if normalized_side == "Sell" else "Sell"
 
             profile = self.get_profile_info()
             if not profile or not profile['balance']:
@@ -268,39 +271,69 @@ class BitMEXTestAPI:
                                 self.logger.warning(f"Existing {pos['current_qty']} contract position at {existing_entry}. Skipping new {side} order near {current_price_rounded}.")
                                 return None
 
-            # Check account balance usage
+            # Check account balance usage (using a rough estimate of current price)
+            current_price = self.get_candle(timeframe='1m', count=1)['close'].iloc[-1] if not self.get_candle(timeframe='1m', count=1).empty else None
             available_balance_usd = profile['balance']['bitmex_usd']
-            if available_balance_usd is not None and current_market_price is not None:
-                potential_order_value_usd = quantity * current_market_price / profile['positions'][0].get('leverage', 1) if profile['positions'] else quantity * current_market_price # Rough estimate
+            if available_balance_usd is not None and current_price is not None:
+                potential_order_value_usd = quantity * current_price / profile['positions'][0].get('leverage', 1) if profile['positions'] else quantity * current_price # Rough estimate
                 if available_balance_usd > 0 and (potential_order_value_usd / available_balance_usd) > self.max_balance_usage:
                     self.logger.warning(f"Attempting to use more than {self.max_balance_usage*100}% of account balance. Skipping order.")
                     return None
                 elif available_balance_usd <= 0:
                     self.logger.warning("Available balance is zero or negative. Cannot open new position.")
                     return None
-            elif current_market_price is None:
+            elif current_price is None:
                 self.logger.warning("Could not fetch current market price. Skipping order.")
                 return None
 
             self.logger.info(f"🎉🎉🎉🎀Opening {side} position for {quantity} contracts for {self.symbol}🎀🎉🎉🎉")
 
-            # Execute the order
-            order = self.client.Order.Order_new(
+            # Execute the entry order
+            entry_order = self.client.Order.Order_new(
                 symbol=self.symbol,
                 side=normalized_side,
                 orderQty=quantity if quantity > 0 else abs(int(quantity)) + 1 * 5, # Ensure quantity is positive
                 ordType=order_type
             ).result()[0]
 
-            # Log order details
-            self.logger.info(f"Order placed: {order['ordStatus']} | OrderID: {order['orderID']}")
-            self.logger.info(f"Order details: {side} {abs(quantity)} contracts at {order.get('price', 'market price')}")
+            # Log entry order details
+            self.logger.info(f"Entry order placed: {entry_order['ordStatus']} | OrderID: {entry_order['orderID']}")
+            self.logger.info(f"Entry order details: {side} {abs(quantity)} contracts at {entry_order.get('price', 'market price')}")
 
-            # Wait for order to settle
+            # Wait for entry order to potentially fill (adjust time as needed)
+            time.sleep(1)
+
+            # Place Take Profit order if a price is provided
+            if take_profit_price is not None:
+                tp_order = self.client.Order.Order_new(
+                    symbol=self.symbol,
+                    side=opposite_side,
+                    orderQty=abs(quantity),
+                    stopPx=take_profit_price,
+                    ordType='MarketIfTouched',  # Consider 'LimitIfTouched' for more price control
+                    execInst='Close',
+                    trigger='LastPrice'
+                ).result()[0]
+                self.logger.info(f"Take Profit order placed: {tp_order['orderID']} at trigger price: {take_profit_price}")
+
+            # Place Stop Loss order if a price is provided
+            if stop_loss_price is not None:
+                sl_order = self.client.Order.Order_new(
+                    symbol=self.symbol,
+                    side=opposite_side,
+                    orderQty=abs(quantity),
+                    stopPx=stop_loss_price,
+                    ordType='Stop',  # Consider 'StopLimit' for more price control
+                    execInst='Close',
+                    trigger='LastPrice'
+                ).result()[0]
+                self.logger.info(f"Stop Loss order placed: {sl_order['orderID']} at trigger price: {stop_loss_price}")
+
+            # Wait for orders to settle
             time.sleep(2)
             self.get_profile_info()
 
-            return order
+            return entry_order
 
         except bitmex.exceptions.BitMEXAPIError as e:
             self.logger.error(f"BitMEX API Error opening position: {e}")
