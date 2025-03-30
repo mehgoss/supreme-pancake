@@ -248,18 +248,30 @@ class MateGreen:
         pos_side = side if str(side).lower() in ['short','sell'] else "Buy"
         pos_quan = position_size if int(position_size) > 1 else int(position_size) + 1*2 
         order = self.api.open_test_position(pos_side, pos_quan, order_type="Market", take_profit_price=take_profit, stop_loss_price=stop_loss)
-        trade = {
-            'entry_time': sast_now.strftime('%Y-%m-%d %H:%M:%S'),
-            'entry_price': price,
-            'entry_index': order['orderID'],
-            'type': side,
-            'position_size': position_size,
-            'stop_loss': stop_loss,
-            'take_profit': take_profit,
-            'risk_amount': self.risk_per_trade * self.current_balance
-        }
+        if order != None:
+            trade = {
+                'entry_time': sast_now.strftime('%Y-%m-%d %H:%M:%S'),
+                'entry_price': price,
+                'entry_index': order['orderID'],
+                'type': side,
+                'position_size': position_size,
+                'stop_loss': stop_loss,
+                'take_profit': take_profit,
+                'risk_amount': self.risk_per_trade * self.current_balance
+            }
+        else:
+            trade = {
+                'entry_time': sast_now.strftime('%Y-%m-%d %H:%M:%S'),
+                'entry_price': price,
+                'entry_index': entry_idx,
+                'type': side,
+                'position_size': position_size,
+                'stop_loss': stop_loss,
+                'take_profit': take_profit,
+                'risk_amount': self.risk_per_trade * self.current_balance
+            }
         
-        self.logger.info(f"Opened {pos_side} position at {price}, SL: {stop_loss}, TP: {take_profit}, Size: {pos_quan}")
+        #self.logger.info(f"Opened {pos_side} position at {price}, SL: {stop_loss}, TP: {take_profit}, Size: {pos_quan}")
 
     def execute_exit(self, signal):
         reason = signal['reason']
