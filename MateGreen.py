@@ -255,8 +255,10 @@ class MateGreen:
             'take_profit': take_profit,
             'risk_amount': self.risk_per_trade * self.current_balance
         }
-        self.trades.append(trade)
-        self.logger.info(f"Opened {side} position at {price}, SL: {stop_loss}, TP: {take_profit}, Size: {position_size}")
+        pos_side = side if str(side).lower() in ['short','sell'] else "Buy"
+        pos_quan = quantity if int(quantity) > 1 else int(quantity) + 1*2 
+        self.api.open_test_position(self,pos_side pos_quan, order_type="Market")
+        self.logger.info(f"Opened {pos_side} position at {price}, SL: {stop_loss}, TP: {take_profit}, Size: {pos_quan}")
 
     def execute_exit(self, signal):
         reason = signal['reason']
@@ -275,13 +277,14 @@ class MateGreen:
                             'exit_price': price,
                             'exit_index': len(self.df) - 1,
                             'exit_reason': reason,
-                            'pnl': pl
+                            'pnl': pl0
                         })
                         break
                 self.current_balance += pl
                 self.equity_curve.append(self.current_balance)
                 self.current_trades.remove(trade)
-                self.logger.info(f"Closed {direction} position at {price} due to {reason}, PnL: {pl}")
+                self.api.close_position(entry_idx)
+                self.logger.info(f"Closed ID:{entry_idx} , {direction}\n position at {price} due to {reason}, \nPnL: {pl}")
                 break
 
     def visualize_results(self, start_idx=0, end_idx=None):
