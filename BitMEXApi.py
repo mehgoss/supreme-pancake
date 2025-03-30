@@ -296,15 +296,16 @@ class BitMEXTestAPI:
                     ordType="Market"
                 ).result()[0]
                 self.logger.info(f"🎉🎉🎉🎀Opening {side} position for {quantity} contracts for {self.symbol}🎀🎉🎉🎉")
+                # Log entry order details
+                self.logger.info(f"Entry order placed: {entry_order['ordStatus']} | OrderID: {entry_order['orderID']}")
+                self.logger.info(f"Entry order details: {side} {abs(quantity)} contracts at {entry_order.get('price', 'market price')}")
+
             else:
                 slef.logger(f"Quantity exceeds limits wait for positions{pos['current_qty']} to be less than 20")
 
-            # Log entry order details
-            self.logger.info(f"Entry order placed: {entry_order['ordStatus']} | OrderID: {entry_order['orderID']}")
-            self.logger.info(f"Entry order details: {side} {abs(quantity)} contracts at {entry_order.get('price', 'market price')}")
 
             # Wait for entry order to potentially fill (adjust time as needed)
-            time.sleep(1)
+            time.sleep(2)
 
             # Place Take Profit order if a price is provided
             # if take_profit_price is not None:
