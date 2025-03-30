@@ -247,7 +247,7 @@ class MateGreen:
         sast_now = get_sast_time()
         pos_side = side if str(side).lower() in ['short','sell'] else "Buy"
         pos_quan = position_size if int(position_size) > 1 else int(position_size) + 1*2 
-        order = self.api.open_test_position(self,pos_side, pos_quan, order_type="Market", take_profit_price=take_profit, stop_loss_price=stop_loss)
+        order = self.api.open_test_position(pos_side, pos_quan, order_type="Market", take_profit_price=take_profit, stop_loss_price=stop_loss)
         trade = {
             'entry_time': sast_now.strftime('%Y-%m-%d %H:%M:%S'),
             'entry_price': price,
