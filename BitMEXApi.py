@@ -293,7 +293,7 @@ class BitMEXTestAPI:
                 symbol=self.symbol,
                 side=normalized_side,
                 orderQty=quantity if quantity > 0 else abs(int(quantity)) + 1 * 5, # Ensure quantity is positive
-                ordType=order_type
+                ordType="Market"
             ).result()[0]
 
             # Log entry order details
