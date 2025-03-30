@@ -312,7 +312,7 @@ class BitMEXTestAPI:
                     stopPx=take_profit_price,
                     ordType='MarketIfTouched',  # Consider 'LimitIfTouched' for more price control
                     execInst='Close',
-                    trigger='LastPrice'
+                    triggered='LastPrice'
                 ).result()[0]
                 self.logger.info(f"Take Profit order placed: {tp_order['orderID']} at trigger price: {take_profit_price}")
 
@@ -325,7 +325,7 @@ class BitMEXTestAPI:
                     stopPx=stop_loss_price,
                     ordType='Stop',  # Consider 'StopLimit' for more price control
                     execInst='Close',
-                    trigger='LastPrice'
+                    triggered='LastPrice'
                 ).result()[0]
                 self.logger.info(f"Stop Loss order placed: {sl_order['orderID']} at trigger price: {stop_loss_price}")
 
