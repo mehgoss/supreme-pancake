@@ -287,7 +287,7 @@ class BitMEXTestAPI:
                 return None
 
             
-            if not int(pos['current_qty']) <= 20 :
+            if not int(pos['current_qty']) >= 20 :
                 # Execute the entry order
                 entry_order = self.client.Order.Order_new(
                     symbol=self.symbol,
