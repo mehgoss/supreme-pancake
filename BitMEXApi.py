@@ -18,12 +18,14 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-##self.logger, telegram_bot = configure_logging(TOKEN, CHAT_ID)
+# Initialize logger and Telegram bot (assuming TeleLogBot is configured elsewhere)
+logger, telegram_bot = configure_logging(TOKEN, CHAT_ID)
 
 # Set the correct time zone
 utc_now = datetime.utcnow()
 sast = pytz.timezone('Africa/Johannesburg')
 sast_now = utc_now.replace(tzinfo=pytz.utc).astimezone(sast)
+
 import yfinance as yf
 from datetime import datetime
 
@@ -43,21 +45,21 @@ def btc_to_usd(btc_amount, fallback_price=80000):
             btc_usd_price = btc_data['Close'].iloc[-1]  # Use the latest closing price
         else:
             btc_usd_price = fallback_price
-            print(f"Warning: Failed to fetch BTC/USD price from yfinance. Using fallback price: ${fallback_price}")
+            logger.warning(f"Failed to fetch BTC/USD price from yfinance. Using fallback price: ${fallback_price}")
 
         # Calculate USD amount
         usd_amount = btc_amount * btc_usd_price
-        print(f"Converted {btc_amount:.8f} BTC to ${usd_amount:.2f} USD at ${btc_usd_price:.2f}/BTC")
+        logger.info(f"Converted {btc_amount:.8f} BTC to ${usd_amount:.2f} USD at ${btc_usd_price:.2f}/BTC")
         return usd_amount
 
     except Exception as e:
-        print(f"Error fetching BTC/USD price: {str(e)}. Using fallback price: ${fallback_price}")
+        logger.error(f"Error fetching BTC/USD price: {str(e)}. Using fallback price: ${fallback_price}")
         usd_amount = btc_amount * fallback_price
         return usd_amount
 
 
 class BitMEXTestAPI:
-    def __init__(self, api_key, api_secret, test=True, symbol='SOL-USD',Log=None):
+    def __init__(self, api_key, api_secret, test=True, symbol='SOL-USD', Log=None):
         """
         Initialize BitMEX API client
 
@@ -67,22 +69,21 @@ class BitMEXTestAPI:
         :param symbol: Trading symbol (default SOL-USD)
         """
         try:
-            self.logger= Log
+            self.logger = Log if Log else logger
             self.client = bitmex.bitmex(
                 test=test,
                 api_key=api_key,
                 api_secret=api_secret
             )
-            self.symbol =  symbol if '-' not in symbol else symbol.replace('-', '')  # Symbol parsed here
+            self.symbol = symbol.replace('-', '')  # Symbol parsed here
+            self.max_balance_usage = 0.30  # Maximum percentage of account balance to use for a position
 
             # Log initialization
             network_type = 'testnet' if test else 'mainnet'
-            #self.logger.info(f"BitMEXAPI initialized for {symbol} on {network_type}")
-            print(f"BitMEXTestAPI initialized for {symbol} on {network_type}")
+            self.logger.info(f"BitMEXTestAPI initialized for {symbol} on {network_type}")
 
         except Exception as e:
-            #self.logger.error(f"Initialization error: {str(e)}")
-            print(f"Initialization error: {str(e)}")
+            self.logger.error(f"Initialization error: {str(e)}")
             raise
 
     def get_profile_info(self):
@@ -103,9 +104,9 @@ class BitMEXTestAPI:
                 filter=json.dumps({"symbol": self.symbol})
             ).result()[0]
 
-            # Fetch current BTC/USD price for conversion
+            # Fetch current BTC/USD price for conversion (using BitMEX data)
             btc_price_data = self.client.Trade.Trade_getBucketed(
-                symbol = "BTCUSD" , 
+                symbol="BTCUSD",
                 binSize="1m",
                 count=1,
                 reverse=True
@@ -129,9 +130,9 @@ class BitMEXTestAPI:
                     "margin_balance": margin.get('marginBalance'),
                     "available_margin": margin.get('availableMargin'),
                     "unrealized_pnl": margin.get('unrealisedPnl'),
-                    "realized_pnl": margin.get('realisedPnl'), 
-                    "usd" : btc_to_usd(wallet_balance_btc), 
-                    "USD2" : wallet_balance_usd 
+                    "realized_pnl": margin.get('realisedPnl'),
+                    "usd": btc_to_usd(wallet_balance_btc),
+                    "bitmex_usd": wallet_balance_usd # Using BitMEX price for internal consistency
                 },
                 "positions": [{
                     "symbol": pos.get('symbol'),
@@ -146,30 +147,20 @@ class BitMEXTestAPI:
 
             # Logging profile details
             self.logger.info("Profile information retrieved successfully")
-            print("Profile information retrieved successfully")
-
-            #self.logger.info(f"Account: {profile_info['user']['username']}")
-            print(f"Account: {profile_info['user']['username']}")
-
-            self.logger.info(f"Wallet Balance: {wallet_balance_btc:.8f} BTC ({btc_to_usd(wallet_balance_btc):.2f} USD)")
-            print(f"Wallet Balance: {wallet_balance_btc:.8f} BTC ({wallet_balance_usd:.2f} USD)")
-
-            #self.logger.info(f"Available Margin: {profile_info['balance']['available_margin'] / 100000000:.8f} BTC")
-            print(f"Available Margin: {profile_info['balance']['available_margin'] / 100000000:.8f} BTC")
+            self.logger.info(f"Account: {profile_info['user']['username']}")
+            self.logger.info(f"Wallet Balance: {wallet_balance_btc:.8f} BTC ({profile_info['balance']['bitmex_usd']:.2f} USD)")
+            self.logger.info(f"Available Margin: {profile_info['balance']['available_margin'] / 100000000:.8f} BTC")
 
             if profile_info['positions']:
                 for pos in profile_info['positions']:
                     self.logger.info(f"📈🔵🔴Position: {pos['symbol']} | Qty: {pos['current_qty']} | Entry: {pos['avg_entry_price']}")
-                    print(f"Position: {pos['symbol']} | Qty: {pos['current_qty']} | Entry: {pos['avg_entry_price']}")
             else:
-                #self.logger.info("No open positions")
-                print("No open positions")
+                self.logger.info("No open positions")
 
             return profile_info
 
         except Exception as e:
             self.logger.error(f"Error getting profile information: {str(e)}")
-            print(f"Error getting profile information: {str(e)}")
             return None
 
     def get_candle(self, timeframe='1m', count=100):
@@ -207,7 +198,7 @@ class BitMEXTestAPI:
 
             # Retrieve candle data
             candles = self.client.Trade.Trade_getBucketed(
-                symbol=self.symbol if '-' not in self.symbol else self.symbol.replace('-',''), 
+                symbol=self.symbol,
                 binSize=base_timeframe,
                 count=adjusted_count,
                 reverse=True
@@ -239,14 +230,12 @@ class BitMEXTestAPI:
                 }).dropna().tail(count)
 
             # Log retrieval success
-            #self.logger.info(f"Retrieved {len(df)} {timeframe} candles for {self.symbol}")
-            print(f"Retrieved {len(df)} {timeframe} candles for {self.symbol}")
+            self.logger.info(f"Retrieved {len(df)} {timeframe} candles for {self.symbol}")
 
             return df
 
         except Exception as e:
-            #self.logger.error(f"Error retrieving candle data: {str(e)}")
-            print(f"Error retrieving candle data: {str(e)}")
+            self.logger.error(f"Error retrieving candle data: {str(e)}")
             return None
 
     def open_test_position(self, side="Buy", quantity=100, order_type="Market"):
@@ -259,23 +248,53 @@ class BitMEXTestAPI:
         :return: Order details or None if error
         """
         try:
-            self.logger.info(f"🎉🎉🎉🎀Opening test {side} position for {quantity} contracts for {self.symbol}🎀🎉🎉🎉")
+            self.logger.info(f"Attempting to open {side} position for {quantity} contracts for {self.symbol}")
             normalized_side = "Sell" if str(side).strip().lower() in ["short", "sell"] else "Buy"
+
+            profile = self.get_profile_info()
+            if not profile or not profile['balance']:
+                self.logger.error("Could not retrieve profile information to check existing positions or balance.")
+                return None
+
+            # Check for existing open position within a price range
+            for pos in profile['positions']:
+                if pos['symbol'] == self.symbol:
+                    existing_entry = float(f"{pos['avg_entry_price']:.2f}")
+                    current_market_price = self.get_candle(timeframe='1m', count=1)['close'].iloc[-1] if not self.get_candle(timeframe='1m', count=1).empty else None
+                    if current_market_price is not None:
+                        current_price_rounded = float(f"{current_market_price:.2f}")
+                        if normalized_side == ("Buy" if pos['current_qty'] <= 0 else "Sell"): # Check if trying to open in the same direction
+                            if abs(current_price_rounded - existing_entry) <= 0.5:
+                                self.logger.warning(f"Existing {pos['current_qty']} contract position at {existing_entry}. Skipping new {side} order near {current_price_rounded}.")
+                                return None
+
+            # Check account balance usage
+            available_balance_usd = profile['balance']['bitmex_usd']
+            if available_balance_usd is not None and current_market_price is not None:
+                potential_order_value_usd = quantity * current_market_price / profile['positions'][0].get('leverage', 1) if profile['positions'] else quantity * current_market_price # Rough estimate
+                if available_balance_usd > 0 and (potential_order_value_usd / available_balance_usd) > self.max_balance_usage:
+                    self.logger.warning(f"Attempting to use more than {self.max_balance_usage*100}% of account balance. Skipping order.")
+                    return None
+                elif available_balance_usd <= 0:
+                    self.logger.warning("Available balance is zero or negative. Cannot open new position.")
+                    return None
+            elif current_market_price is None:
+                self.logger.warning("Could not fetch current market price. Skipping order.")
+                return None
+
+            self.logger.info(f"🎉🎉🎉🎀Opening {side} position for {quantity} contracts for {self.symbol}🎀🎉🎉🎉")
 
             # Execute the order
             order = self.client.Order.Order_new(
-                symbol = self.symbol if '-' not in self.symbol else self.symbol.replace('-', '') ,
-                side= normalized_side, 
-                orderQty=quantity if quantity > 10 else int(quantity)+1*5,
+                symbol=self.symbol,
+                side=normalized_side,
+                orderQty=quantity if quantity > 0 else abs(int(quantity)) + 1 * 5, # Ensure quantity is positive
                 ordType=order_type
             ).result()[0]
 
             # Log order details
             self.logger.info(f"Order placed: {order['ordStatus']} | OrderID: {order['orderID']}")
-            print(f"Order placed: {order['ordStatus']} | OrderID: {order['orderID']}")
-
-            self.logger.info(f"Order details: {side} {quantity} contracts at {order.get('price', 'market price')}")
-            print(f"Order details: {side} {quantity} contracts at {order.get('price', 'market price')}")
+            self.logger.info(f"Order details: {side} {abs(quantity)} contracts at {order.get('price', 'market price')}")
 
             # Wait for order to settle
             time.sleep(2)
@@ -283,9 +302,11 @@ class BitMEXTestAPI:
 
             return order
 
+        except bitmex.exceptions.BitMEXAPIError as e:
+            self.logger.error(f"BitMEX API Error opening position: {e}")
+            return None
         except Exception as e:
-            #self.logger.error(f"Error opening test position: {str(e)}")
-            print(f"Error opening test position: {str(e)}")
+            self.logger.error(f"Error opening test position: {str(e)}")
             return None
 
     def _close_position(self, position):
@@ -300,8 +321,7 @@ class BitMEXTestAPI:
             current_qty = position['currentQty']
 
             if current_qty == 0:
-                #self.logger.info(f"No open position for {symbol}")
-                print(f"No open position for {symbol}")
+                self.logger.info(f"No open position for {symbol}")
                 return None
 
             # Determine closing side
@@ -309,24 +329,24 @@ class BitMEXTestAPI:
             qty = abs(current_qty)
 
             self.logger.info(f"Closing position: {symbol} | {current_qty} contracts | Side: {side} | Qty: {qty}")
-            print(f"Closing position: {symbol} | {current_qty} contracts | Side: {side} | Qty: {qty}")
 
             # Place closing order
             order = self.client.Order.Order_new(
-                symbol = self.symbol if '-' not in self.symbol else self.symbol.replace('-', ''),
+                symbol=self.symbol,
                 side=side,
                 orderQty=qty,
                 ordType="Market"
             ).result()[0]
 
             self.logger.info(f"🔴📈⁉️❗Position closed: {order['ordStatus']} | OrderID: {order['orderID']}")
-            print(f"Position closed: {order['ordStatus']} | OrderID: {order['orderID']}")
 
             return order
 
+        except bitmex.exceptions.BitMEXAPIError as e:
+            self.logger.error(f"BitMEX API Error closing position {position['symbol']}: {e}")
+            return None
         except Exception as e:
-            #self.logger.error(f"Error closing position {position['symbol']}: {str(e)}")
-            print(f"Error closing position {position['symbol']}: {str(e)}")
+            self.logger.error(f"Error closing position {position['symbol']}: {str(e)}")
             return None
 
     def close_all_positions(self):
@@ -338,12 +358,11 @@ class BitMEXTestAPI:
         try:
             # Get current positions
             positions = self.client.Position.Position_get(
-                filter=json.dumps({"symbol": self.symbol if '-' not in self.symbol else self.symbol.replace('-', '')})
+                filter=json.dumps({"symbol": self.symbol})
             ).result()[0]
 
             if not positions:
-                #self.logger.info("No positions to close")
-                print("No positions to close")
+                self.logger.info("No positions to close")
                 return None
 
             # Close each position
@@ -356,23 +375,23 @@ class BitMEXTestAPI:
 
             return True
 
-        except Exception as e:
-            #self.logger.error(f"Error closing positions: {str(e)}")
-            print(f"Error closing positions: {str(e)}")
+        except bitmex.exceptions.BitMEXAPIError as e:
+            self.logger.error(f"BitMEX API Error closing positions: {e}")
             return None
-            
+        except Exception as e:
+            self.logger.error(f"Error closing positions: {str(e)}")
+            return None
+
     def close_position(self, order_id):
         try:
             order = self.client.Order.Order_cancel(orderID=order_id).result()[0]
             self.logger.info(f"🔴📈⁉️❗Position closed: {order['ordStatus']} | OrderID: {order['orderID']}")
-            ##self.logger.info(f"Position closed: OrderID {order_id}")
             time.sleep(2)
             self.get_profile_info()
             return order
-        except Exception as e:
-            self.logger.error(f"Error closing position {order_id}: {str(e)}")
-            return None
-            
+        except bitmex.exceptions.BitMEXAPIError as e:
+            self.logger.error
+
     def run_test_sequence(self):
         """
         Run a comprehensive test sequence of trading operations
