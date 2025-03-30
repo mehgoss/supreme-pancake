@@ -287,14 +287,14 @@ class BitMEXTestAPI:
                 return None
 
             self.logger.info(f"🎉🎉🎉🎀Opening {side} position for {quantity} contracts for {self.symbol}🎀🎉🎉🎉")
-
-            # Execute the entry order
-            entry_order = self.client.Order.Order_new(
-                symbol=self.symbol,
-                side=normalized_side,
-                orderQty=quantity if quantity > 0 else abs(int(quantity)) + 1 * 5, # Ensure quantity is positive
-                ordType="Market"
-            ).result()[0]
+            if not int(pos['current_qty']) <= 20 :
+                # Execute the entry order
+                entry_order = self.client.Order.Order_new(
+                    symbol=self.symbol,
+                    side=normalized_side,
+                    orderQty=quantity if quantity > 0 else abs(int(quantity)) + 1 * 5, # Ensure quantity is positive
+                    ordType="Market"
+                ).result()[0]
 
             # Log entry order details
             self.logger.info(f"Entry order placed: {entry_order['ordStatus']} | OrderID: {entry_order['orderID']}")
