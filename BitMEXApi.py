@@ -301,7 +301,7 @@ class BitMEXTestAPI:
                 self.logger.info(f"Entry order details: {side} {abs(quantity)} contracts at {entry_order.get('price', 'market price')}")
 
             else:
-                slef.logger.warning(f"Quantity exceeds limits wait for positions{pos['current_qty']} to be less than 20")
+                self.logger.warning(f"Quantity exceeds limits wait for positions{pos['current_qty']} to be less than 20")
 
 
             # Wait for entry order to potentially fill (adjust time as needed)
