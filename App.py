@@ -8,7 +8,7 @@ from datetime import datetime
 # Ensure the necessary imports are available
 try:
     from TeleLogBot import configure_logging
-    from MateGreen import MateGreen
+    from MatteGreen import MatteGreen
     from BitMEXApi import BitMEXTestAPI
     
 except ImportError as e:
@@ -45,7 +45,7 @@ def long_running_task(logger,bot):
             
         )
         # Initialize the trader
-        trader = MateGreen(
+        trader = MatteGreen(
             api_key=API_KEY,
             api_secret=API_SECRET,
             test=True,
