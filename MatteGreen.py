@@ -34,7 +34,7 @@ class MatteGreen:
         self.rr_ratio = rr_ratio
         self.lookback_period = lookback_period
         self.fvg_threshold = fvg_threshold
-        self.logger = log if log else logging.getLogger(__name__)
+        self.logger, self.bot = configure_logging(os.getenv("TOKEN"), os.getenv("CHAT_ID")) 
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO)
         self.api = BitMEXTestAPI(api_key, api_secret, test=test, symbol=symbol, Log=self.logger)
@@ -312,11 +312,11 @@ class MatteGreen:
             performance = self.calculate_performance()
             self.logger.info(f"Performance: {performance}")
 
-            if self.telegram_bot:
+            if self.bot:
                 fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
                 caption = (f"📸Scan {iteration+1} at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
                            f"Signal: {signal_found}\nBalance: ${self.current_balance:.2f}")
-                self.telegram_bot.send_photo(fig=fig, caption=caption)
+                self.bot.send_photo(fig=fig, caption=caption)
 
             time.sleep(scan_interval)
             iteration += 1
