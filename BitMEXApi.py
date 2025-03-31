@@ -222,7 +222,7 @@ class BitMEXTestAPI:
             time.sleep(1)  # Wait for entry to settle
 
             # Place Take Profit (MarketIfTouched)
-            if take_profit_price is not None:
+            if take_profit_price is None:
                 tp_params = {
                     "symbol": self.symbol,
                     "side": opposite_side,
@@ -236,7 +236,7 @@ class BitMEXTestAPI:
                 self.logger.info(f"Take Profit order placed: {orders['take_profit']['orderID']} at {take_profit_price}")
 
             # Place Stop Loss (Stop)
-            if stop_loss_price is not None:
+            if stop_loss_price is None:
                 sl_params = {
                     "symbol": self.symbol,
                     "side": opposite_side,
