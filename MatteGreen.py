@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import mplfinance as mpf
 import pytz
 from datetime import datetime, timedelta
-from BitMEXAPI import BitMEXTestAPI  # Assuming this is defined in a separate file
+from BitMEXApi import BitMEXTestAPI  # Assuming this is defined in a separate file
 
 load_dotenv()
 
