@@ -240,15 +240,15 @@ class MatteGreen:
             if start_idx <= idx < end_idx:
                 ax1.plot(idx - start_idx, price, 'co', label='BOS' if idx == self.bos_points[0][0] else "")
 
-        for trade in self.current_trades:
-            idx, entry_price, direction, stop_loss, take_profit, _ = trade
-            if start_idx <= idx < end_idx:
-                ax1.axhline(stop_loss, color='r', linestyle='--', label='SL' if trade == self.current_trades[0] else "")
-                ax1.axhline(take_profit, color='g', linestyle='--', label='TP' if trade == self.current_trades[0] else "")
-                ax1.plot(idx - start_idx, entry_price, 'bo' if direction == 'long' else 'ro',
-                         label=f"{direction.capitalize()} Entry" if trade == self.current_trades[0] else "")
-
-        ax1.set_title(f"{self.symbol} - SMC Analysis")
+        for start, end, high, low, fvg_type in self.fvg_areas:
+             if start_idx <= end < end_idx:
+                 color = 'green' if fvg_type == 'bullish' else 'red'
+                 ax1.fill_between(range(max(0, start - start_idx), min(end - start_idx + 1, len(subset))),
+                                  high, low, color=color, alpha=0.2, label=f"{fvg_type.capitalize()} FVG" if start == self.fvg_areas[0][0] else "")
+ 
+        # Plot SL and TP for current trades
+        for idx, entry_price, direction, stop_loss, take_profit, size in self.current_trades:
+            ax1.set_title(f"{self.symbol} - SMC Analysis")
         ax1.legend(loc='upper left')
 
         ax2 = fig.add_subplot(gs[1, 0])
