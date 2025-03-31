@@ -180,7 +180,7 @@ class BitMEXTestAPI:
                     if current_price:
                         current_price_rounded = float(f"{current_price:.2f}")
                         if normalized_side == ("Buy" if pos['current_qty'] <= 0 else "Sell"):
-                            if abs(current_price_rounded - existing_entry) <= 0.5:
+                            if abs(current_price_rounded - existing_entry) <= 1.5:
                                 self.logger.warning(f"Existing position at {existing_entry}. Skipping near {current_price_rounded}")
                                 return None
 
