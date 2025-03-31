@@ -315,8 +315,7 @@ class MatteGreen:
             if self.bot:
                 fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
                 caption = (f"📸Scan {iteration+1} at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                           f"Signal: {signal_found}\nBalance: ${self.current_balance:.2f}\n
-                           Price at : {self.df['close'][-1]}")
+                           f"Signal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice at : {self.df['close'][-1]}")
                 self.bot.send_photo(fig=fig, caption=caption)
             self.logger.info(f"😪😪😪sleepining for {scan_interval}....") 
             time.sleep(scan_interval)
