@@ -227,7 +227,7 @@ class BitMEXTestAPI:
                     "symbol": self.symbol,
                     "side": opposite_side,
                     "orderQty": abs(int(quantity)),
-                    "stopPx": int(take_profit price) ,
+                    "stopPx": abs(int(take_profit price)),
                     "ordType": "MarketIfTouched",
                     "execInst": "Close",
                     "text": "Take Profit"
@@ -241,7 +241,7 @@ class BitMEXTestAPI:
                     "symbol": self.symbol,
                     "side": opposite_side,
                     "orderQty": abs(int(quantity)),
-                    "stopPx": int(stop_loss price),
+                    "stopPx": abs(int(stop_loss price)),
                     "ordType": "Stop",
                     "execInst": "Close",
                     "text": "Stop Loss"
