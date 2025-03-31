@@ -318,7 +318,7 @@ class MatteGreen:
                            f"Signal: {signal_found}\nBalance: ${self.current_balance:.2f}\n
                            Price at : {self.df['close'][-1]}")
                 self.bot.send_photo(fig=fig, caption=caption)
-
+            self.logger.info(f"😪😪😪sleepining for {scan_interval}....") 
             time.sleep(scan_interval)
             iteration += 1
 
