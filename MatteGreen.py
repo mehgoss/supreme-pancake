@@ -331,11 +331,11 @@ class MatteGreen:
         self.logger.info("MatteGreen stopped.")
         final_performance = self.calculate_performance()
         self.logger.info(f"Final performance: {final_performance}")
-        if self.telegram_bot:
+        if self.bot:
             fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
             caption = (f"🏁Final Results\nTotal Trades: {final_performance['total_trades']}\n"
                        f"Win Rate: {final_performance['win_rate']:.2%}\nReturn: {final_performance['total_return_pct']:.2f}%")
-            self.telegram_bot.send_photo(fig=fig, caption=caption)
+            self.bot.send_photo(fig=fig, caption=caption)
 
         return signal_found, self.df
 
