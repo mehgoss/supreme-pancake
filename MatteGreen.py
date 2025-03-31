@@ -21,7 +21,7 @@ def get_sast_time():
 
 class MatteGreen:
     def __init__(self, api_key, api_secret, test=True, symbol="SOL-USD", timeframe="5m",
-                 initial_capital=10000, risk_per_trade=0.02, rr_ratio=2, lookback_period=20,
+                 initial_capital=10000, risk_per_trade=0.02, rr_ratio=1.25, lookback_period=20,
                  fvg_threshold=0.003, telegram_token=None, telegram_chat_id=None, log=None):
         self.api_key = api_key
         self.api_secret = api_secret
