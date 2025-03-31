@@ -203,7 +203,7 @@ class MateGreen:
                         lookback_start = max(0, current_idx - self.lookback_period)
                         stop_dist = entry_price - min(self.df['low'].iloc[lookback_start:current_idx+1]) if direction == 'long' else \
                                     max(self.df['high'].iloc[lookback_start:current_idx+1]) - entry_price
-                        stop_loss = entry_price - stop_dist * 1.1 if direction == 'long' else entry_price + stop_dist * 1.1
+                        stop_loss = entry_price - stop_dist * .5 if direction == 'long' else entry_price + stop_dist * .5
                         take_profit = entry_price + stop_dist * self.rr_ratio if direction == 'long' else entry_price - stop_dist * self.rr_ratio
                         size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
                         risk_of_new_trade = abs(entry_price - stop_loss) * size
