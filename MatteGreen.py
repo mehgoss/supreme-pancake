@@ -317,7 +317,7 @@ class MatteGreen:
                 caption = (f"📸Scan {iteration+1} at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
                            f"Signal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice at : {self.df['close'][-1]}")
                 self.bot.send_photo(fig=fig, caption=caption)
-            self.logger.info(f"😪😪😪sleepining for {scan_interval}....") 
+            self.logger.info(f"😪😪😪sleepining for {scan_interval/60} minutes....") 
             time.sleep(scan_interval)
             iteration += 1
 
@@ -325,7 +325,7 @@ class MatteGreen:
                 self.logger.info(f"Pausing for {sleep_interval_minutes} minutes...")
                 print(f"Pausing for {sleep_interval_minutes} minutes...")
                 time.sleep(sleep_interval_minutes * 60)
-                self.logger.info("Resuming...")
+                self.logger.info("🙋🏾‍♂️Resuming...")
                 print("Resuming...")
 
         self.logger.info("MatteGreen stopped.")
