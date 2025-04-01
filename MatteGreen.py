@@ -310,7 +310,7 @@ class MatteGreen:
                     self.execute_exit(signal)
 
             performance = self.calculate_performance()
-            self.logger.info(f"Performance: {performance}")
+            #self.logger.info(f"Performance: {performance}")
 
             if self.bot:
                 fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
