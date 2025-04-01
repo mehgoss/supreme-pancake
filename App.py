@@ -59,7 +59,7 @@ def long_running_task(logger,bot):
         
         # Log start time
         current_time = get_sast_time()
-        logger.info(f"Starting MateGreen at {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        #logger.info(f"Starting MateGreen at {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Run the trading strategy
         while time.time() - start_time < max_runtime:
