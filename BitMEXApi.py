@@ -55,11 +55,11 @@ class BitMEXTestAPI:
 
             btc_price_data = self.client.Trade.Trade_getBucketed(
                 symbol="BTCUSD",
-                binSize="1m",
+                binSize="5m",
                 count=1,
                 reverse=True
             ).result()[0]
-            btc_usd_price = btc_price_data[0]['close'] if btc_price_data else 40000
+            btc_usd_price = btc_price_data[-1]['close'] if btc_price_data else 90000
 
             wallet_balance_btc = margin.get('walletBalance', 0) / 100000000  # Satoshis to BTC
             wallet_balance_usd = wallet_balance_btc * btc_usd_price
