@@ -330,7 +330,7 @@ class MatteGreen:
 
         self.logger.info("MatteGreen stopped.")
         final_performance = self.calculate_performance()
-        self.logger.info(f"Final performance: {final_performance}")
+        #self.logger.info(f"Final performance: {final_performance}")
         if self.bot:
             fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
             caption = (f"🏁Final Results\nTotal Trades: {final_performance['total_trades']}\n"
