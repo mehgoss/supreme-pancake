@@ -264,20 +264,21 @@ class BitMEXTestAPI:
         :return: Order result or None if error
         """
         try:
+            order = self.client.Order.Order_cancel(orderID=order_id).result()[0]
             positions = self.client.Position.Position_get(
                 filter=json.dumps({"symbol": self.symbol})
             ).result()[0]
-            for pos in positions:
-                if pos['current_qty'] != 0:
-                    side = "Sell" if pos['current_qty'] > 0 else "Buy"
-                    qty = abs(pos['current_qty'])
-                    order = self.client.Order.Order_new(
-                        symbol=self.symbol,
-                        side=side,
-                        orderQty=qty,
-                        ordType="Market",
-                        clOrdID=order_id
-                    ).result()[0]
+            #for pos in positions:
+                #if pos['current_qty'] != 0:
+                    #side = "Sell" if pos['current_qty'] > 0 else "Buy"
+                    #qty = abs(pos['current_qty'])
+                    #order = self.client.Order.Order_new(
+                        #symbol=self.symbol,
+                        #side=side,
+                        #orderQty=qty,
+                        #ordType="Market",
+                        #clOrdID=order_id
+                    #).result()[0]
                     self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
                     return order
             self.logger.info(f"No open position found for {self.symbol}")
@@ -293,24 +294,25 @@ class BitMEXTestAPI:
         :return: True if successful, None if error or no positions
         """
         try:
+            #Closed = client.Order.Order_cancel(orderID='').result() 
             positions = self.client.Position.Position_get(
                 filter=json.dumps({"symbol": self.symbol})
             ).result()[0]
             if not positions:
                 self.logger.info("No positions to close")
                 return None
-
-            for pos in positions:
-                if pos['current_qty'] != 0:
-                    side = "Sell" if pos['current_qty'] > 0 else "Buy"
-                    qty = abs(pos['current_qty'])
-                    order = self.client.Order.Order_new(
-                        symbol=self.symbol,
-                        side=side,
-                        orderQty=qty,
-                        ordType="Market"
-                    ).result()[0]
-                    self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
+            order = client.Order.Order_cancelAll().result() 
+            #for pos in positions:
+                #if pos['current_qty'] != 0:
+                    #side = "Sell" if pos['current_qty'] > 0 else "Buy"
+                    #qty = abs(pos['current_qty'])
+                    #order = self.client.Order.Order_new(
+                        #symbol=self.symbol,
+                        #side=side,
+                        #orderQty=qty,
+                        #ordType="Market"
+                    #).result()[0]
+            self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
 
             time.sleep(2)
             self.get_profile_info()
