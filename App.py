@@ -37,13 +37,13 @@ def long_running_task(logger,bot):
     max_runtime = 60 * 60  # 3 minutes in seconds
     
     try:
-        api = BitMEXTestAPI(
-            api_key=API_KEY,
-            api_secret=API_SECRET,
-            test=True,
-            Log=logger
+        #api = BitMEXTestAPI(
+            #api_key=API_KEY,
+            #api_secret=API_SECRET,
+            #test=True,
+            #Log=logger
             
-        )
+        #)
         # Initialize the trader
         trader = MatteGreen(
             api_key=API_KEY,
