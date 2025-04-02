@@ -319,7 +319,7 @@ class MatteGreen:
             "total_return_pct": round(total_return, 2),
             "max_drawdown_pct": round(max_drawdown, 2),
             "margin_utilization": round(margin_utilization, 2),
-            "available margin" : round(available margin, 2),
+            "available margin" : round(available_margin, 2),
             "realized profits n loss(pnl)" : round(realized_pnl, 2),
             "unrealized pnl" : round(unrealized_pnl, 2)
             
