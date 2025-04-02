@@ -140,7 +140,7 @@ class MatteGreen:
                                     'exit_price': round(stop_loss,4), 'direction': direction, 'pl': pl, 'result': 'loss'})
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx})
                 self.current_trades.remove(trade)
-                self.logger.info(f"🔴🔴🔴❗❗❗Exit: {direction} stopped out at {stop_loss}")
+                self.logger.info(f"🔴❗Exit: {direction} stopped out at {stop_loss}")
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
                  (direction == 'short' and self.df['low'].iloc[current_idx] <= take_profit):
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
@@ -206,20 +206,30 @@ class MatteGreen:
             if idx == entry_idx and trade_direction == direction:
                 profile = self.api.get_profile_info()
                 position_open = any(p['symbol'] == self.symbol and p['current_qty'] != 0 for p in profile['positions'])
-                if not position_open:
-                    pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
-                    self.current_balance += pl
-                    self.equity_curve.append(self.current_balance)
-                    self.current_trades.remove(trade)
-                    self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
-                else:
+                #if not position_open:
+                    #pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                if True:
                     try:
                         self.api.close_position(entry_idx)
+                        pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                        self.current_balance += pl
+                        self.equity_curve.append(self.current_balance)
+                        self.current_trades.remove(trade)
+                        self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
+                        self.logger.info(f"❗❗🔴 Closed position \nID: {entry_idx} ") 
                     except:
                         try:
                             self.api.close_all_positions()
+                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                            self.current_balance += pl
+                            self.equity_curve.append(self.current_balance)
+                            self.current_trades.remove(trade)
+                            self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
+                            self.logger.info(f"❗❗❗🔴 Closed All position.....") 
+                 
                         except:
-                            self.logger.error(f"can't close positions") 
+                            self.logger.error(f"🔴🔴🔴❗❗❗can't close positions") 
+                            
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
                     self.equity_curve.append(self.current_balance)
