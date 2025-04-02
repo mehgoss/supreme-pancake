@@ -137,7 +137,7 @@ class MatteGreen:
                 pl = (stop_loss - entry_price) * size if direction == 'long' else (entry_price - stop_loss) * size
                 self.current_balance += pl
                 self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': entry_price,
-                                    'exit_price': stop_loss, 'direction': direction, 'pl': pl, 'result': 'loss'})
+                                    'exit_price': round(stop_loss,4), 'direction': direction, 'pl': pl, 'result': 'loss'})
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx})
                 self.current_trades.remove(trade)
                 self.logger.info(f"🔴🔴🔴❗❗❗Exit: {direction} stopped out at {stop_loss}")
@@ -145,8 +145,8 @@ class MatteGreen:
                  (direction == 'short' and self.df['low'].iloc[current_idx] <= take_profit):
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
                 self.current_balance += pl
-                self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': entry_price,
-                                    'exit_price': take_profit, 'direction': direction, 'pl': pl, 'result': 'win'})
+                self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': round(entry_price, 2),
+                                    'exit_price': round(take_profit ,4), 'direction': direction, 'pl': pl, 'result': 'win'})
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx})
                 self.current_trades.remove(trade)
                 self.logger.info(f"Exit: {direction} took profit at {take_profit}📈🎉🎉🔵🔵")
@@ -159,7 +159,7 @@ class MatteGreen:
                 stop_dist = entry_price - min(self.df['low'].iloc[lookback_start:current_idx+1]) if direction == 'long' else \
                             max(self.df['high'].iloc[lookback_start:current_idx+1]) - entry_price
                 stop_loss = entry_price - stop_dist * 0.25 if direction == 'long' else entry_price + stop_dist * 0.25
-                take_profit = entry_price + stop_dist * (self.rr_ratio * 0.25/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.25/2)
+                take_profit = entry_price + stop_dist * (self.rr_ratio * 0.5/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.5/2)
                 size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
                 risk_of_new_trade = abs(entry_price - stop_loss) * size
 
