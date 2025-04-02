@@ -279,10 +279,10 @@ class BitMEXTestAPI:
                         #ordType="Market",
                         #clOrdID=order_id
                     #).result()[0]
-                    self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
-                    return order
-            self.logger.info(f"No open position found for {self.symbol}")
-            return None
+            self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
+            return order
+            #self.logger.info(f"No open position found for {self.symbol}")
+            #return None
         except Exception as e:
             self.logger.error(f"Error closing position: {str(e)}")
             return None
@@ -315,7 +315,7 @@ class BitMEXTestAPI:
             self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
 
             time.sleep(2)
-            self.get_profile_info()
+            #self.get_profile_info()
             return True
         except Exception as e:
             self.logger.error(f"Error closing all positions: {str(e)}")
