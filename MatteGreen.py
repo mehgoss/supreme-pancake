@@ -324,6 +324,20 @@ class MatteGreen:
     def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=5, iterations_before_sleep=5):
         start_time = time.time()
         sast_now = get_sast_time()
+        Banner = """
+        Welcome to
+        
+ ██████╗ ██████╗ ███████╗███████╗███╗   ██╗███╗   ███╗ █████╗ ████████╗███████╗
+██╔════╝ ██╔══██╗██╔════╝██╔════╝████╗  ██║████╗ ████║██╔══██╗╚══██╔══╝██╔════╝
+██║  ███╗██████╔╝█████╗  █████╗  ██╔██╗ ██║██╔████╔██║███████║   ██║   █████╗  
+██║   ██║██╔══██╗██╔══╝  ██╔══╝  ██║╚██╗██║██║╚██╔╝██║██╔══██║   ██║   ██╔══╝  
+╚██████╔╝██║  ██║███████╗███████╗██║ ╚████║██║ ╚═╝ ██║██║  ██║   ██║   ███████╗
+ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═══╝╚═╝     ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
+                                                                               
+
+        
+        """
+        self.logger.info(Banner) 
         self.logger.info(f"Starting MatteGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Starting MatteGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -362,10 +376,10 @@ class MatteGreen:
 
             if self.bot:
                 fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
-                caption = (f"📸Scan {iteration+1} at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                           f"Signal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice at : ${self.df['close'][-1]}")
+                caption = (f"📸Scan {iteration+1}\nTimestamp: {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                           f"Symbol: {self.symbol}\nSignal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice @ ${self.df['close'][-1]}")
                 self.bot.send_photo(fig=fig, caption=caption)
-            self.logger.info(f"Price $:{self.df['close'][-1]} \n 😪😪😪sleepining for {scan_interval/60} minutes....") 
+            self.logger.info(f"({self.symbol})Price @ ${self.df['close'][-1]} \n\n 😪😪😪sleepining for {scan_interval/60} minutes....") 
             time.sleep(scan_interval)
             iteration += 1
 
