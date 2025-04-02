@@ -210,7 +210,7 @@ class MatteGreen:
                     self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
                 else:
                     try:
-                        self.api.close_position(idx)
+                        self.api.close_position(entry_idx)
                     except:
                         try:
                             self.api.close_all_positions()
