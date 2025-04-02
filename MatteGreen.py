@@ -338,7 +338,7 @@ class MatteGreen:
         while (time.time() - start_time) < max_runtime_minutes * 60:
             sast_now = get_sast_time()
             self.logger.info(f"Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"🤔📈🕵🏽‍♂️🔍🔎Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
             if not self.get_market_data() or len(self.df) < self.lookback_period:
                 self.logger.warning(f"Insufficient data: {len(self.df)} candles")
