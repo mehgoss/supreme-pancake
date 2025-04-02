@@ -319,6 +319,10 @@ class MatteGreen:
             "total_return_pct": round(total_return, 2),
             "max_drawdown_pct": round(max_drawdown, 2),
             "margin_utilization": round(margin_utilization, 2),
+            "available margin" : round(available margin, 2),
+            "realized profits n loss(pnl)" : round(realized_pnl, 2),
+            "unrealized pnl" : round(unrealized_pnl, 2)
+            
         } 
     
     def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=5, iterations_before_sleep=5):
@@ -327,9 +331,9 @@ class MatteGreen:
         Banner = """
 
         ┏━━━✦❘༻༺❘✦━━━┓
-            Welcome to
-                .
-            ᙏα𝜏𝜏ҽGɾҽҽɳ
+                Welcome to
+                   .
+                 ᙏα𝜏𝜏ҽGɾҽҽɳ
  
         ┗━━━✦❘༻༺❘✦━━━┛
         
