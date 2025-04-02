@@ -121,24 +121,25 @@ class MatteGreen:
                     self.fvg_areas.append((i-2, i, self.df['high'].iloc[i-2], self.df['low'].iloc[i], 'bullish'))
                 if (self.df['low'].iloc[i-2] - self.df['high'].iloc[i]) > self.fvg_threshold * self.df['close'].iloc[i]:
                     self.fvg_areas.append((i-2, i, self.df['high'].iloc[i], self.df['low'].iloc[i-2], 'bearish'))
-
+                    
     def execute_trades(self):
         signals = []
         current_idx = len(self.df) - 1
         current_price = self.df['close'].iloc[current_idx]
-
-        total_risk_amount = sum(abs(entry_price - stop_loss) * size for _, entry_price, _, stop_loss, _, size in self.current_trades)
+    
+        total_risk_amount = sum(abs(entry_price - stop_loss) * size for _, _, entry_price, _, stop_loss, _, size in self.current_trades)
         max_total_risk = self.current_balance * 0.20
-
+    
+        # Check for exits (stop loss or take profit)
         for trade in list(self.current_trades):
-            idx, entry_price, direction, stop_loss, take_profit, size = trade
+            trade_id, idx, entry_price, direction, stop_loss, take_profit, size = trade
             if (direction == 'long' and self.df['low'].iloc[current_idx] <= stop_loss) or \
                (direction == 'short' and self.df['high'].iloc[current_idx] >= stop_loss):
                 pl = (stop_loss - entry_price) * size if direction == 'long' else (entry_price - stop_loss) * size
                 self.current_balance += pl
                 self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': entry_price,
-                                    'exit_price': round(stop_loss,4), 'direction': direction, 'pl': pl, 'result': 'loss'})
-                signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx})
+                                    'exit_price': round(stop_loss, 4), 'direction': direction, 'pl': pl, 'result': 'loss'})
+                signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
                 self.logger.info(f"🔴❗Exit: {direction} stopped out at {stop_loss}")
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
@@ -146,11 +147,12 @@ class MatteGreen:
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
                 self.current_balance += pl
                 self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': round(entry_price, 2),
-                                    'exit_price': round(take_profit ,4), 'direction': direction, 'pl': pl, 'result': 'win'})
-                signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx})
+                                    'exit_price': round(take_profit, 4), 'direction': direction, 'pl': pl, 'result': 'win'})
+                signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
                 self.logger.info(f"Exit: {direction} took profit at {take_profit}📈🎉🎉🔵🔵")
-
+    
+        # Check for new entries
         if len(self.current_trades) < 3 and current_idx >= self.lookback_period:
             direction = 'long' if self.market_bias == 'bullish' else 'short' if self.market_bias == 'bearish' else None
             if direction:
@@ -162,16 +164,16 @@ class MatteGreen:
                 take_profit = entry_price + stop_dist * (self.rr_ratio * 0.5/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.5/2)
                 size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
                 risk_of_new_trade = abs(entry_price - stop_loss) * size
-
+    
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
-                    signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss,4),
-                                    'take_profit': round(take_profit, 4),'position_size': int(size), 'entry_idx': current_idx})
-                    self.current_trades.append((current_idx, entry_price, direction, stop_loss, take_profit, size))
+                    signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
+                                    'take_profit': round(take_profit, 4), 'position_size': int(size), 'entry_idx': current_idx})
+                    self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size))  # trade_id will be set in execute_entry
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
-
+    
         self.equity_curve.append(self.current_balance)
         return signals
-
+        
     def execute_entry(self, signal):
         side = signal['side']
         price = signal['price']
@@ -180,67 +182,77 @@ class MatteGreen:
         position_size = signal['position_size']
         entry_idx = signal['entry_idx']
         sast_now = get_sast_time()
-
+    
         pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
         pos_quantity = max(2, int(position_size))
-
+    
         orders = self.api.open_test_position(side=pos_side, quantity=pos_quantity, order_type="Market",
                                              take_profit_price=take_profit, stop_loss_price=stop_loss)
         if orders and orders['entry']:
             trade_id = orders['entry']['orderID']
-            self.current_trades.append(trade_id, price, side, stop_loss, take_profit, position_size)
+            # Append the trade as a tuple with the trade_id
+            self.current_trades.append((trade_id, entry_idx, price, side, stop_loss, take_profit, position_size))
             self.logger.info(f"📈🎉🎉Opened {pos_side} at {price}, SL: {stop_loss}, TP: {take_profit}, ID: {trade_id}")
         else:
             self.logger.warning(f"Order failed, using local ID {entry_idx}")
-            self.current_trades[-1] = (entry_idx, price, side, stop_loss, take_profit, position_size)
-
+            # Append a new trade with entry_idx as the ID if the order fails
+            self.current_trades.append((entry_idx, entry_idx, price, side, stop_loss, take_profit, position_size))
     def execute_exit(self, signal):
         reason = signal['reason']
         price = signal['price']
         direction = signal['direction']
         entry_idx = signal['entry_idx']
+        trade_id = signal.get('trade_id')  # Get the trade_id from the signal
         sast_now = get_sast_time()
-
+    
         for trade in list(self.current_trades):
-            idx, entry_price, trade_direction, stop_loss, take_profit, size = trade
+            stored_trade_id, idx, entry_price, trade_direction, stop_loss, take_profit, size = trade
             if idx == entry_idx and trade_direction == direction:
                 profile = self.api.get_profile_info()
                 position_open = any(p['symbol'] == self.symbol and p['current_qty'] != 0 for p in profile['positions'])
-                #if not position_open:
-                    #pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                 if position_open:
                     try:
-                        import uuid
-
-                        # Creating a UUID object from the string
-                        uuid_obj = uuid.UUID(entry_idx)
-                        self.api.close_position(uuid_obj)
-                        pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
-                        self.current_balance += pl
-                        self.equity_curve.append(self.current_balance)
-                        self.current_trades.remove(trade)
-                        self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
-                        self.logger.info(f"❗❗🔴 Closed position \nID: {entry_idx} ") 
-                    except:
-                        try:
-                            self.api.close_all_positions()
+                        if trade_id and trade_id == stored_trade_id:  # Ensure we have a valid trade_id
+                            import uuid
+                            uuid_obj = uuid.UUID(trade_id)  # Use the trade_id from the signal
+                            self.api.close_position(uuid_obj)
                             pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                             self.current_balance += pl
                             self.equity_curve.append(self.current_balance)
                             self.current_trades.remove(trade)
                             self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
-                            self.logger.info(f"❗❗❗🔴 Closed All position.....") 
-                 
+                            self.logger.info(f"❗❗🔴 Closed position \nID: {trade_id}")
+                        else:
+                            self.logger.warning(f"No valid trade_id for position, attempting to close manually")
+                            # Fallback: Close the position without a trade_id (e.g., market order in opposite direction)
+                            self.api.close_all_positions()  # This should be replaced with a more targeted approach
+                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                            self.current_balance += pl
+                            self.equity_curve.append(self.current_balance)
+                            self.current_trades.remove(trade)
+                            self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
+                            self.logger.info(f"❗❗❗🔴 Closed All position.....")
+                    except Exception as e:
+                        self.logger.error(f"Failed to close position with ID {trade_id}: {str(e)}")
+                        # Retry or handle the error more gracefully
+                        try:
+                            self.api.close_all_positions()  # Fallback (replace with a better approach)
+                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                            self.current_balance += pl
+                            self.equity_curve.append(self.current_balance)
+                            self.current_trades.remove(trade)
+                            self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
+                            self.logger.info(f"❗❗❗🔴 Closed All position.....")
                         except:
-                            self.logger.error(f"🔴🔴🔴❗❗❗can't close positions") 
-                            
+                            self.logger.error(f"🔴🔴🔴❗❗❗ Can't close positions")
+                else:
+                    # No position open on the exchange, update local state
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
                     self.equity_curve.append(self.current_balance)
                     self.current_trades.remove(trade)
                     self.logger.info(f"Manually closed {direction} at {price}, Reason: {reason}, PnL: {pl}")
                 break
-
     def visualize_results(self, start_idx=0, end_idx=None):
         if end_idx is None:
             end_idx = len(self.df)
