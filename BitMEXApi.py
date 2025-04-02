@@ -54,7 +54,7 @@ class BitMEXTestAPI:
             ).result()[0]
 
             btc_price_data = self.client.Trade.Trade_getBucketed(
-                symbol="BTCUSD",
+                symbol="XBTUSD",
                 binSize="5m",
                 count=1,
                 reverse=True
@@ -119,7 +119,7 @@ class BitMEXTestAPI:
                 raise ValueError(f"Invalid timeframe. Supported: {', '.join(valid_timeframes)}")
 
             candles = self.client.Trade.Trade_getBucketed(
-                symbol=self.symbol if '-' not in self.symbol else str(self.symbol).replace('-', ''),
+                symbol=self.symbol if '-' not in self.symbol else 'XBTUSD' ,
                 binSize=timeframe,
                 count=count,
                 reverse=True
