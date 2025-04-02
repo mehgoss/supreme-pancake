@@ -8,6 +8,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 import pytz
+import yfinance as yf
 from datetime import datetime, timedelta
 from BitMEXApi import BitMEXTestAPI
 from TeleLogBot import configure_logging, TelegramBot  # Import refined TeleLogBot
@@ -53,9 +54,12 @@ class MatteGreen:
 
     def get_market_data(self):
         try:
-            data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period * 2)
+            #data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period * 2)
+            
+            data = yf.download(tickers=self.symbol, interval=self.timeframe, period='1d') 
+            data.columns = [I[0].lower() for I in data.columns] 
             if data is None or data.empty:
-                self.logger.error("No data from BitMEX API")
+                self.logger.error("No data from Yfinance API")
                 return False
             data.index = pd.to_datetime(data['timestamp'])
             data['higher_high'] = False
