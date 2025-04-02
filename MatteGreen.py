@@ -325,7 +325,7 @@ class MatteGreen:
             
         } 
     
-    def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=1, iterations_before_sleep2):
+    def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=1, iterations_before_sleep=2):
         start_time = time.time()
         sast_now = get_sast_time()
         Banner = """
