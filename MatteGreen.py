@@ -337,8 +337,8 @@ class MatteGreen:
         iteration = 0
         while (time.time() - start_time) < max_runtime_minutes * 60:
             sast_now = get_sast_time()
-            self.logger.info(f"Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"🤔📈🕵🏽‍♂️🔍🔎Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
+            self.logger.info(f"🤔📈🕵🏽‍♂️🔍🔎Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
             if not self.get_market_data() or len(self.df) < self.lookback_period:
                 self.logger.warning(f"Insufficient data: {len(self.df)} candles")
@@ -363,9 +363,9 @@ class MatteGreen:
             if self.bot:
                 fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
                 caption = (f"📸Scan {iteration+1} at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                           f"Signal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice at : {self.df['close'][-1]}")
+                           f"Signal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice at : ${self.df['close'][-1]}")
                 self.bot.send_photo(fig=fig, caption=caption)
-            self.logger.info(f"Price:{self.df['close'][-1]}\n😪😪😪sleepining for {scan_interval/60} minutes....") 
+            self.logger.info(f"Price $:{self.df['close'][-1]} \n 😪😪😪sleepining for {scan_interval/60} minutes....") 
             time.sleep(scan_interval)
             iteration += 1
 
