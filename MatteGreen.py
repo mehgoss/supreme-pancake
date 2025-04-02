@@ -166,7 +166,7 @@ class MatteGreen:
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss,4),
                                     'take_profit': round(take_profit, 4),'position_size': int(size), 'entry_idx': current_idx})
-                    self.current_trades.append((current_idx, entry_price, direction, stop_loss, take_profit, size))
+                    self.current_trades[-1] = (current_idx, entry_price, direction, stop_loss, take_profit, size)
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
 
         self.equity_curve.append(self.current_balance)
@@ -208,9 +208,13 @@ class MatteGreen:
                 position_open = any(p['symbol'] == self.symbol and p['current_qty'] != 0 for p in profile['positions'])
                 #if not position_open:
                     #pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
-                if True:
+                if position_open:
                     try:
-                        self.api.close_position(entry_idx)
+                        import uuid
+
+                        # Creating a UUID object from the string
+                        uuid_obj = uuid.UUID(entry_idx)
+                        self.api.close_position(uuid_obj)
                         pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                         self.current_balance += pl
                         self.equity_curve.append(self.current_balance)
