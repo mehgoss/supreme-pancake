@@ -61,7 +61,7 @@ class MatteGreen:
             if data is None or data.empty:
                 self.logger.error("No data from Yfinance API")
                 return False
-            data.index = pd.to_datetime(data['timestamp'])
+            data.index = pd.to_datetime(data['datetime'])
             data['higher_high'] = False
             data['lower_low'] = False
             data['bos_up'] = False
