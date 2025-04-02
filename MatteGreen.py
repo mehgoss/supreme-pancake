@@ -325,19 +325,19 @@ class MatteGreen:
             
         } 
     
-    def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=5, iterations_before_sleep=5):
+    def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=1, iterations_before_sleep2):
         start_time = time.time()
         sast_now = get_sast_time()
         Banner = """
 
         ┏━━━✦❘༻༺❘✦━━━┓
-                Welcome to
-                   .
+                  Welcome to
+                   
                  ᙏα𝜏𝜏ҽGɾҽҽɳ
  
         ┗━━━✦❘༻༺❘✦━━━┛
         
-        
+        'Where the green make u happy😊' 
         """
         self.logger.info(Banner) 
         self.logger.info(f"Starting MatteGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
