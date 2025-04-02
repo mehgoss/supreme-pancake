@@ -49,7 +49,7 @@ def long_running_task(logger,bot):
             api_key=API_KEY,
             api_secret=API_SECRET,
             test=True,
-            symbol="ETH-USD",
+            symbol="SOL-USD",
             timeframe="5m",
             risk_per_trade=0.005,
             log=logger,
