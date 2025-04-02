@@ -64,7 +64,7 @@ def long_running_task(logger,bot):
         # Run the trading strategy
         while time.time() - start_time < max_runtime:
             # Call the run method of MateGreen
-            signal_found, df = trader.run((2*60)+30)
+            signal_found, df = trader.run(5*60)
             
             # Optional: Add additional logging or processing
             if signal_found:
