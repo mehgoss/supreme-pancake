@@ -399,11 +399,12 @@ class MatteGreen:
             signals = self.execute_trades()
 
             for signal in signals:
-                if signal['action'] == 'entry':
+                if signal['action'] == 'exit':
+                    self.execute_exit(signal)
+                elif signal['action'] == 'entry':
                     self.execute_entry(signal)
                     signal_found = True
-                elif signal['action'] == 'exit':
-                    self.execute_exit(signal)
+                
 
             performance = self.calculate_performance()
             self.logger.info(f"Performance: {performance}")
