@@ -140,7 +140,7 @@ class MatteGreen:
                                     'exit_price': stop_loss, 'direction': direction, 'pl': pl, 'result': 'loss'})
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx})
                 self.current_trades.remove(trade)
-                self.logger.info(f"Exit: {direction} stopped out at {stop_loss}")
+                self.logger.info(f"🔴🔴🔴❗❗❗Exit: {direction} stopped out at {stop_loss}")
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
                  (direction == 'short' and self.df['low'].iloc[current_idx] <= take_profit):
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
@@ -149,7 +149,7 @@ class MatteGreen:
                                     'exit_price': take_profit, 'direction': direction, 'pl': pl, 'result': 'win'})
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx})
                 self.current_trades.remove(trade)
-                self.logger.info(f"Exit: {direction} took profit at {take_profit}")
+                self.logger.info(f"Exit: {direction} took profit at {take_profit}📈🎉🎉🔵🔵")
 
         if len(self.current_trades) < 3 and current_idx >= self.lookback_period:
             direction = 'long' if self.market_bias == 'bullish' else 'short' if self.market_bias == 'bearish' else None
@@ -158,14 +158,14 @@ class MatteGreen:
                 lookback_start = max(0, current_idx - self.lookback_period)
                 stop_dist = entry_price - min(self.df['low'].iloc[lookback_start:current_idx+1]) if direction == 'long' else \
                             max(self.df['high'].iloc[lookback_start:current_idx+1]) - entry_price
-                stop_loss = entry_price - stop_dist * 0.5 if direction == 'long' else entry_price + stop_dist * 0.5
-                take_profit = entry_price + stop_dist * self.rr_ratio if direction == 'long' else entry_price - stop_dist * self.rr_ratio
+                stop_loss = entry_price - stop_dist * 0.25 if direction == 'long' else entry_price + stop_dist * 0.25
+                take_profit = entry_price + stop_dist * (self.rr_ratio * 0.25/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.25/2)
                 size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
                 risk_of_new_trade = abs(entry_price - stop_loss) * size
 
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
-                    signals.append({'action': 'entry', 'side': direction, 'price': entry_price, 'stop_loss': stop_loss,
-                                    'take_profit': take_profit, 'position_size': int(size), 'entry_idx': current_idx})
+                    signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss,4),
+                                    'take_profit': round(take_profit, 4),'position_size': int(size), 'entry_idx': current_idx})
                     self.current_trades.append((current_idx, entry_price, direction, stop_loss, take_profit, size))
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
 
@@ -188,8 +188,8 @@ class MatteGreen:
                                              take_profit_price=take_profit, stop_loss_price=stop_loss)
         if orders and orders['entry']:
             trade_id = orders['entry']['orderID']
-            self.current_trades[-1] = (trade_id, price, side, stop_loss, take_profit, position_size)
-            self.logger.info(f"Opened {pos_side} at {price}, SL: {stop_loss}, TP: {take_profit}, ID: {trade_id}")
+            self.current_trades.append(trade_id, price, side, stop_loss, take_profit, position_size)
+            self.logger.info(f"📈🎉🎉Opened {pos_side} at {price}, SL: {stop_loss}, TP: {take_profit}, ID: {trade_id}")
         else:
             self.logger.warning(f"Order failed, using local ID {entry_idx}")
             self.current_trades[-1] = (entry_idx, price, side, stop_loss, take_profit, position_size)
