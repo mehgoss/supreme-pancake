@@ -265,20 +265,58 @@ class MatteGreen:
         plt.tight_layout()
         return fig
 
-    def calculate_performance(self):
-        if not self.trades:
-            return {'total_trades': 0, 'win_rate': 0, 'profit_factor': 0, 'total_return_pct': 0, 'max_drawdown_pct': 0}
-        winning_trades = [t for t in self.trades if t['pl'] > 0]
-        win_rate = len(winning_trades) / len(self.trades)
-        gross_profit = sum(t['pl'] for t in self.trades if t['pl'] > 0)
-        gross_loss = abs(sum(t['pl'] for t in self.trades if t['pl'] <= 0))
-        profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
-        total_return = (self.current_balance - self.initial_capital) / self.initial_capital * 100
-        max_drawdown = max((max(self.equity_curve[:i+1]) - self.equity_curve[i]) / max(self.equity_curve[:i+1]) * 100
-                           for i in range(len(self.equity_curve)))
-        return {'total_trades': len(self.trades), 'win_rate': win_rate, 'profit_factor': profit_factor,
-                'total_return_pct': total_return, 'max_drawdown_pct': max_drawdown}
+    
+    def calculate_performance(self, profile_info=self.api.get_profile_info()):
+        """
+        Calculate trading performance based on profile data.
+        
+        :param profile_info: Dictionary containing user balance and positions.
+        :return: Dictionary with performance metrics.
+        """
+        if not profile_info or "balance" not in profile_info or "positions" not in profile_info:
+            return {
+                "total_trades": 0, "win_rate": 0, "profit_factor": 0,
+                "total_return_pct": 0, "max_drawdown_pct": 0, "margin_utilization": 0
+            }
 
+        # Extract balance info
+        wallet_balance = profile_info["balance"].get("wallet_balance", 0) / 1e8  # Convert Satoshis to BTC
+        margin_balance = profile_info["balance"].get("margin_balance", 0) / 1e8
+        available_margin = profile_info["balance"].get("available_margin", 0) / 1e8
+        realized_pnl = profile_info["balance"].get("realized_pnl", 0) / 1e8
+        unrealized_pnl = sum(pos["unrealized_pnl"] for pos in profile_info["positions"]) / 1e8
+
+        # Extract positions info
+        total_trades = len(profile_info["positions"])
+        winning_trades = [pos for pos in profile_info["positions"] if pos["realized_pnl"] > 0]
+        
+        win_rate = (len(winning_trades) / total_trades) * 100 if total_trades > 0 else 0
+        gross_profit = sum(pos["realized_pnl"] for pos in profile_info["positions"] if pos["realized_pnl"] > 0) / 1e8
+        gross_loss = abs(sum(pos["realized_pnl"] for pos in profile_info["positions"] if pos["realized_pnl"] < 0)) / 1e8
+        
+        profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else float("inf")
+
+        # Calculate total return percentage
+        initial_balance = wallet_balance - realized_pnl  # Assuming realized PnL changed balance
+        total_return = ((wallet_balance - initial_balance) / initial_balance) * 100 if initial_balance > 0 else 0
+
+        # Max drawdown calculation (simulated from margin balance)
+        equity_curve = [margin_balance + pos["unrealized_pnl"] / 1e8 for pos in profile_info["positions"]]
+        max_drawdown = max((max(equity_curve[:i+1]) - equity_curve[i]) / max(equity_curve[:i+1]) * 100
+                        for i in range(1, len(equity_curve))) if equity_curve else 0
+
+        # Margin Utilization: How much margin is used compared to available funds
+        margin_utilization = ((margin_balance - available_margin) / margin_balance) * 100 if margin_balance > 0 else 0
+
+        return {
+            "total_trades": total_trades,
+            "win_rate": round(win_rate, 2),
+            "profit_factor": round(profit_factor, 2),
+            "total_return_pct": round(total_return, 2),
+            "max_drawdown_pct": round(max_drawdown, 2),
+            "margin_utilization": round(margin_utilization, 2),
+        } 
+    
     def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=5, iterations_before_sleep=5):
         start_time = time.time()
         sast_now = get_sast_time()
@@ -316,7 +354,7 @@ class MatteGreen:
                     self.execute_exit(signal)
 
             performance = self.calculate_performance()
-            #self.logger.info(f"Performance: {performance}")
+            self.logger.info(f"Performance: {performance}")
 
             if self.bot:
                 fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
