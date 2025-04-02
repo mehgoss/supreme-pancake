@@ -240,8 +240,8 @@ class MatteGreen:
 
         swing_high_idx = [i - start_idx for i, val in enumerate(self.swing_highs[start_idx:end_idx]) if val]
         swing_low_idx = [i - start_idx for i, val in enumerate(self.swing_lows[start_idx:end_idx]) if val]
-        ax1.plot(swing_high_idx, subset['high'].iloc[swing_high_idx], 'rv', label='Swing High')
-        ax1.plot(swing_low_idx, subset['low'].iloc[swing_low_idx], 'g^', label='Swing Low')
+        #ax1.plot(swing_high_idx, subset['high'].iloc[swing_high_idx], 'rv', label='Swing High')
+        #ax1.plot(swing_low_idx, subset['low'].iloc[swing_low_idx], 'g^', label='Swing Low')
 
         for idx, price, c_type in self.choch_points:
             if start_idx <= idx < end_idx:
