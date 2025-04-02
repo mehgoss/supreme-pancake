@@ -119,7 +119,7 @@ class BitMEXTestAPI:
                 raise ValueError(f"Invalid timeframe. Supported: {', '.join(valid_timeframes)}")
 
             candles = self.client.Trade.Trade_getBucketed(
-                symbol=self.symbol,
+                symbol=self.symbol if '-' not in self.symbol else str(self.symbol).replace('-', ''),
                 binSize=timeframe,
                 count=count,
                 reverse=True
