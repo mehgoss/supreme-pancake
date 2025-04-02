@@ -209,7 +209,13 @@ class MatteGreen:
                     self.current_trades.remove(trade)
                     self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
                 else:
-                    self.api.close_all_positions()
+                    try:
+                        self.api.close_position(idx)
+                    except:
+                        try:
+                            self.api.close_all_positions()
+                        except:
+                            self.logger.error(f"can't close positions") 
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
                     self.equity_curve.append(self.current_balance)
