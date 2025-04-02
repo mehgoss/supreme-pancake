@@ -303,8 +303,11 @@ class MatteGreen:
 
         # Max drawdown calculation (simulated from margin balance)
         equity_curve = [margin_balance + pos["unrealized_pnl"] / 1e8 for pos in profile_info["positions"]]
-        max_drawdown = max((max(equity_curve[:i+1]) - equity_curve[i]) / max(equity_curve[:i+1]) * 100
+        if len(equity_curve) > 2:
+            max_drawdown = max((max(equity_curve[:i+1]) - equity_curve[i]) / max(equity_curve[:i+1]) * 100
                         for i in range(1, len(equity_curve))) if equity_curve else 0
+        else:
+            max_drawdown = 0
 
         # Margin Utilization: How much margin is used compared to available funds
         margin_utilization = ((margin_balance - available_margin) / margin_balance) * 100 if margin_balance > 0 else 0
