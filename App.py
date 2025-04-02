@@ -49,8 +49,8 @@ def long_running_task(logger,bot):
             api_key=API_KEY,
             api_secret=API_SECRET,
             test=True,
-            symbol="SOL-USD",
-            timeframe="5m",
+            symbol="BTC-USD",
+            timeframe="1m",
             risk_per_trade=0.005,
             log=logger,
             #telegram_bot=bot, 
@@ -64,7 +64,7 @@ def long_running_task(logger,bot):
         # Run the trading strategy
         while time.time() - start_time < max_runtime:
             # Call the run method of MateGreen
-            signal_found, df = trader.run(5*60)
+            signal_found, df = trader.run((2*60)+30)
             
             # Optional: Add additional logging or processing
             if signal_found:
