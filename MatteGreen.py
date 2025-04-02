@@ -241,10 +241,12 @@ class MatteGreen:
 
         for idx, price, c_type in self.choch_points:
             if start_idx <= idx < end_idx:
-                ax1.plot(idx - start_idx, price, 'mo', label='CHoCH' if idx == self.choch_points[0][0] else "")
+                pass
+                #ax1.plot(idx - start_idx, price, 'mo', label='CHoCH' if idx == self.choch_points[0][0] else "")
         for idx, price, b_type in self.bos_points:
             if start_idx <= idx < end_idx:
-                ax1.plot(idx - start_idx, price, 'co', label='BOS' if idx == self.bos_points[0][0] else "")
+                #ax1.plot(idx - start_idx, price, 'co', label='BOS' if idx == self.bos_points[0][0] else "")
+                pass
 
         for start, end, high, low, fvg_type in self.fvg_areas:
              if start_idx <= end < end_idx:
