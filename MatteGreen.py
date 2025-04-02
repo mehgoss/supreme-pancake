@@ -266,13 +266,14 @@ class MatteGreen:
         return fig
 
     
-    def calculate_performance(self, profile_info=self.api.get_profile_info()):
+    def calculate_performance(self):
         """
         Calculate trading performance based on profile data.
         
         :param profile_info: Dictionary containing user balance and positions.
         :return: Dictionary with performance metrics.
         """
+        profile_info = self.api.get_profile_info()
         if not profile_info or "balance" not in profile_info or "positions" not in profile_info:
             return {
                 "total_trades": 0, "win_rate": 0, "profit_factor": 0,
