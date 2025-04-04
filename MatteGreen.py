@@ -258,7 +258,7 @@ class MatteGreen:
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
                     self.equity_curve.append(self.current_balance)
-                    self.current_trades.remove(trade)
+                    #self.current_trades.remove(trade)
                     self.logger.info(f"Manually closed {direction} at {price}, Reason: {reason}, PnL: {pl}")
                 break
     def visualize_results(self, start_idx=0, end_idx=None):
