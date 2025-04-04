@@ -1,4 +1,3 @@
-# MatteGreen.py v1
 import os
 import time
 import pandas as pd
@@ -13,6 +12,8 @@ from datetime import datetime, timedelta
 from BitMEXApi import BitMEXTestAPI
 from TeleLogBot import configure_logging, TelegramBot  # Import refined TeleLogBot
 from PerfCalc import get_trading_performance_summary
+import pymongo
+import uuid
 
 load_dotenv()
 
@@ -20,12 +21,6 @@ def get_sast_time():
     utc_now = datetime.utcnow()
     sast = pytz.timezone('Africa/Johannesburg')
     return utc_now.replace(tzinfo=pytz.utc).astimezone(sast)
-
-class MatteGreen:
-        import pymongo
-import uuid
-
-load_dotenv()
 
 class MatteGreen:
     def __init__(self, api_key, api_secret, test=True, symbol="SOL-USD", timeframe="5m",
@@ -42,8 +37,9 @@ class MatteGreen:
         self.rr_ratio = rr_ratio
         self.lookback_period = lookback_period
         self.fvg_threshold = fvg_threshold
-        self.logger, self.bot = configure_logging(os.getenv("TOKEN"), os.getenv("CHAT_ID")) 
+        self.logger, self.bot = configure_logging(os.getenv("TOKEN"), os.getenv("CHAT_ID"))
         if not self.logger.handlers:
+            import logging
             logging.basicConfig(level=logging.INFO)
         self.api = BitMEXTestAPI(api_key, api_secret, test=test, symbol=symbol, Log=self.logger)
         self.telegram_bot = TelegramBot(telegram_token, telegram_chat_id) if telegram_token and telegram_chat_id else None
@@ -69,6 +65,7 @@ class MatteGreen:
         self.closed_trades_collection.create_index("clord_id", unique=True)
 
         self.logger.info(f"MatteGreen initialized for {symbol} on {timeframe}")
+
     def sync_current_trades(self):
         """Sync local current_trades with MongoDB."""
         self.current_trades = []
@@ -83,17 +80,14 @@ class MatteGreen:
                 trade["position_size"]
             ))
         self.logger.info(f"Synced {len(self.current_trades)} current trades from MongoDB")
-        
+
     def get_market_data(self):
         try:
-            #data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period * 2)
-            
-            data = yf.download(tickers=self.symbol, interval=self.timeframe, period='2d') 
-            data.columns = [I[0].lower() for I in data.columns] 
+            data = yf.download(tickers=self.symbol, interval=self.timeframe, period='2d')
+            data.columns = [I[0].lower() for I in data.columns]
             if data is None or data.empty:
                 self.logger.error("No data from Yfinance API")
                 return False
-            #data.index = pd.to_datetime(data['datetimeindex'])
             data['higher_high'] = False
             data['lower_low'] = False
             data['bos_up'] = False
@@ -113,11 +107,11 @@ class MatteGreen:
         self.swing_highs = np.zeros(len(self.df))
         self.swing_lows = np.zeros(len(self.df))
         for i in range(window, len(self.df) - window):
-            if all(self.df['high'].iloc[i] >= self.df['high'].iloc[i-j] for j in range(1, window+1)) and \
-               all(self.df['high'].iloc[i] >= self.df['high'].iloc[i+j] for j in range(1, window+1)):
+            if all(self.df['high'].iloc[i] >= self.df['high'].iloc[i - j] for j in range(1, window + 1)) and \
+               all(self.df['high'].iloc[i] >= self.df['high'].iloc[i + j] for j in range(1, window + 1)):
                 self.swing_highs[i] = 1
-            if all(self.df['low'].iloc[i] <= self.df['low'].iloc[i-j] for j in range(1, window+1)) and \
-               all(self.df['low'].iloc[i] <= self.df['low'].iloc[i+j] for j in range(1, window+1)):
+            if all(self.df['low'].iloc[i] <= self.df['low'].iloc[i - j] for j in range(1, window + 1)) and \
+               all(self.df['low'].iloc[i] <= self.df['low'].iloc[i + j] for j in range(1, window + 1)):
                 self.swing_lows[i] = 1
 
     def detect_market_structure(self):
@@ -149,22 +143,22 @@ class MatteGreen:
                 self.bos_points.append((i, self.df['low'].iloc[i], 'bearish'))
 
             if i > 1:
-                if (self.df['low'].iloc[i] - self.df['high'].iloc[i-2]) > self.fvg_threshold * self.df['close'].iloc[i]:
-                    self.fvg_areas.append((i-2, i, self.df['high'].iloc[i-2], self.df['low'].iloc[i], 'bullish'))
-                if (self.df['low'].iloc[i-2] - self.df['high'].iloc[i]) > self.fvg_threshold * self.df['close'].iloc[i]:
-                    self.fvg_areas.append((i-2, i, self.df['high'].iloc[i], self.df['low'].iloc[i-2], 'bearish'))
-                    
+                if (self.df['low'].iloc[i] - self.df['high'].iloc[i - 2]) > self.fvg_threshold * self.df['close'].iloc[i]:
+                    self.fvg_areas.append((i - 2, i, self.df['high'].iloc[i - 2], self.df['low'].iloc[i], 'bullish'))
+                if (self.df['low'].iloc[i - 2] - self.df['high'].iloc[i]) > self.fvg_threshold * self.df['close'].iloc[i]:
+                    self.fvg_areas.append((i - 2, i, self.df['high'].iloc[i], self.df['low'].iloc[i - 2], 'bearish'))
+
     def execute_trades(self):
         signals = []
         current_idx = len(self.df) - 1
         current_price = self.df['close'].iloc[current_idx]
-        
+
         # Sync local state with MongoDB
         self.sync_current_trades()
-        
+
         total_risk_amount = sum(abs(trade[2] - trade[4]) * trade[6] for trade in self.current_trades)  # entry_price - stop_loss * size
         max_total_risk = self.current_balance * 0.20
-        
+
         # Check for exits
         for trade in list(self.current_trades):
             trade_id, idx, entry_price, direction, stop_loss, take_profit, size = trade
@@ -206,29 +200,29 @@ class MatteGreen:
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
                 self.logger.info(f"Exit: {direction} took profit at {take_profit}📈🎉🎉🔵🔵")
-        
+
         # Check for new entries
         if len(self.current_trades) < 3 and current_idx >= self.lookback_period:
             direction = 'long' if self.market_bias == 'bullish' else 'short' if self.market_bias == 'bearish' else None
             if direction:
                 entry_price = current_price
                 lookback_start = max(0, current_idx - self.lookback_period)
-                stop_dist = entry_price - min(self.df['low'].iloc[lookback_start:current_idx+1]) if direction == 'long' else \
-                            max(self.df['high'].iloc[lookback_start:current_idx+1]) - entry_price
+                stop_dist = entry_price - min(self.df['low'].iloc[lookback_start:current_idx + 1]) if direction == 'long' else \
+                            max(self.df['high'].iloc[lookback_start:current_idx + 1]) - entry_price
                 stop_loss = entry_price - stop_dist * 0.25 if direction == 'long' else entry_price + stop_dist * 0.25
-                take_profit = entry_price + stop_dist * (self.rr_ratio * 0.5/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.5/2)
+                take_profit = entry_price + stop_dist * (self.rr_ratio * 0.5 / 2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.5 / 2)
                 size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
                 risk_of_new_trade = abs(entry_price - stop_loss) * size
-        
+
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
                                     'take_profit': round(take_profit, 4), 'position_size': int(size), 'entry_idx': current_idx})
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
-        
+
         self.equity_curve.append(self.current_balance)
         return signals
-            
-     def execute_entry(self, signal):
+
+    def execute_entry(self, signal):
         side = signal['side']
         price = signal['price']
         stop_loss = signal['stop_loss']
@@ -236,20 +230,20 @@ class MatteGreen:
         position_size = signal['position_size']
         entry_idx = signal['entry_idx']
         sast_now = get_sast_time()
-        
+
         pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
         pos_quantity = max(2, int(position_size))
-        
+
         # Generate clord_id
         date_str = sast_now.strftime('%Y%m%d_%H%M%S')
         tp_int = int(take_profit * 10000)  # Convert to integer (e.g., remove decimals for ID)
         sl_int = int(stop_loss * 10000)
         uid = str(uuid.uuid4())[:8]  # Shortened UUID for uniqueness
         clord_id = f"({self.symbol})---({date_str})---({price},{side},{position_size},{entry_idx})---(Tp{tp_int},Sl{sl_int})---{uid}"
-        
+
         # Execute trade on BitMEX
         orders = self.api.open_test_position(side=pos_side, quantity=pos_quantity, order_type="Market",
-                                             take_profit_price=take_profit, stop_loss_price=stop_loss)
+                                            take_profit_price=take_profit, stop_loss_price=stop_loss)
         trade_id = None
         if orders and orders['entry']:
             trade_id = orders['entry']['orderID']
@@ -257,7 +251,7 @@ class MatteGreen:
         else:
             self.logger.warning(f"Order failed, using local ID {entry_idx}")
             trade_id = entry_idx  # Fallback to entry_idx if BitMEX fails
-    
+
         # Trade document for MongoDB
         trade_doc = {
             "clord_id": clord_id,
@@ -271,12 +265,12 @@ class MatteGreen:
             "entry_time": sast_now.isoformat(),
             "status": "open"
         }
-    
+
         # Insert into MongoDB
         self.current_trades_collection.insert_one(trade_doc)
         self.current_trades.append((trade_id, entry_idx, price, side, stop_loss, take_profit, position_size))  # Keep local for now
         self.logger.info(f"Trade stored in MongoDB with clord_id: {clord_id}")
-   
+
     def execute_exit(self, signal):
         reason = signal['reason']
         price = signal['price']
@@ -284,15 +278,15 @@ class MatteGreen:
         entry_idx = signal['entry_idx']
         trade_id = signal.get('trade_id')
         sast_now = get_sast_time()
-        
+
         trade_doc = self.current_trades_collection.find_one({"trade_id": trade_id, "entry_idx": entry_idx})
         if not trade_doc:
             self.logger.error(f"No trade found in MongoDB for trade_id: {trade_id}, entry_idx: {entry_idx}")
             return
-        
+
         entry_price = trade_doc["entry_price"]
         size = trade_doc["position_size"]
-        
+
         profile = self.api.get_profile_info()
         position_open = any(p['symbol'] == self.symbol and p['current_qty'] != 0 for p in profile['positions'])
         if position_open:
@@ -347,10 +341,9 @@ class MatteGreen:
             })
             self.current_trades_collection.delete_one({"trade_id": trade_id, "entry_idx": entry_idx})
             self.logger.info(f"Manually closed {direction} at {price}, Reason: {reason}, PnL: {pl}")
-        
+
         self.sync_current_trades()  # Resync after closing
-        
-        
+
     def visualize_results(self, start_idx=0, end_idx=None):
         if end_idx is None:
             end_idx = len(self.df)
@@ -364,27 +357,20 @@ class MatteGreen:
 
         swing_high_idx = [i - start_idx for i, val in enumerate(self.swing_highs[start_idx:end_idx]) if val]
         swing_low_idx = [i - start_idx for i, val in enumerate(self.swing_lows[start_idx:end_idx]) if val]
-        #ax1.plot(swing_high_idx, subset['high'].iloc[swing_high_idx], 'rv', label='Swing High')
-        #ax1.plot(swing_low_idx, subset['low'].iloc[swing_low_idx], 'g^', label='Swing Low')
 
         for idx, price, c_type in self.choch_points:
             if start_idx <= idx < end_idx:
                 pass
-                #ax1.plot(idx - start_idx, price, 'mo', label='CHoCH' if idx == self.choch_points[0][0] else "")
         for idx, price, b_type in self.bos_points:
             if start_idx <= idx < end_idx:
-                #ax1.plot(idx - start_idx, price, 'co', label='BOS' if idx == self.bos_points[0][0] else "")
                 pass
 
         for start, end, high, low, fvg_type in self.fvg_areas:
-             if start_idx <= end < end_idx:
-                 color = 'green' if fvg_type == 'bullish' else 'red'
-                 ax1.fill_between(range(max(0, start - start_idx), min(end - start_idx + 1, len(subset))),
-                                  high, low, color=color, alpha=0.2, label=f"{fvg_type.capitalize()} FVG" if start == self.fvg_areas[0][0] else "")
- 
-        # Plot SL and TP for current trades
-        #for idx, entry_price, direction, stop_loss, take_profit, size in self.current_trades:
-            #ax1.set_title(f"{self.symbol} - SMC Analysis")
+            if start_idx <= end < end_idx:
+                color = 'green' if fvg_type == 'bullish' else 'red'
+                ax1.fill_between(range(max(0, start - start_idx), min(end - start_idx + 1, len(subset))),
+                                 high, low, color=color, alpha=0.2, label=f"{fvg_type.capitalize()} FVG" if start == self.fvg_areas[0][0] else "")
+
         ax1.legend(loc='upper left')
 
         ax2 = fig.add_subplot(gs[1, 0])
@@ -395,13 +381,9 @@ class MatteGreen:
         plt.tight_layout()
         return fig
 
-    
     def calculate_performance(self):
         """
         Calculate trading performance based on profile data.
-        
-        :param profile_info: Dictionary containing user balance and positions.
-        :return: Dictionary with performance metrics.
         """
         profile_info = self.api.get_profile_info()
         if not profile_info or "balance" not in profile_info or "positions" not in profile_info:
@@ -420,11 +402,11 @@ class MatteGreen:
         # Extract positions info
         total_trades = len(profile_info["positions"])
         winning_trades = [pos for pos in profile_info["positions"] if pos["realized_pnl"] > 0]
-        
+
         win_rate = (len(winning_trades) / total_trades) * 100 if total_trades > 0 else 0
         gross_profit = sum(pos["realized_pnl"] for pos in profile_info["positions"] if pos["realized_pnl"] > 0) / 1e8
         gross_loss = abs(sum(pos["realized_pnl"] for pos in profile_info["positions"] if pos["realized_pnl"] < 0)) / 1e8
-        
+
         profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else float("inf")
 
         # Calculate total return percentage
@@ -434,8 +416,8 @@ class MatteGreen:
         # Max drawdown calculation (simulated from margin balance)
         equity_curve = [margin_balance + pos["unrealized_pnl"] / 1e8 for pos in profile_info["positions"]]
         if len(equity_curve) > 2:
-            max_drawdown = max((max(equity_curve[:i+1]) - equity_curve[i]) / max(equity_curve[:i+1]) * 100
-                        for i in range(1, len(equity_curve))) if equity_curve else 0
+            max_drawdown = max((max(equity_curve[:i + 1]) - equity_curve[i]) / max(equity_curve[:i + 1]) * 100
+                                for i in range(1, len(equity_curve))) if equity_curve else 0
         else:
             max_drawdown = 0
 
@@ -449,32 +431,31 @@ class MatteGreen:
             "total_return_pct": round(total_return, 2),
             "max_drawdown_pct": round(max_drawdown, 2),
             "margin_utilization": round(margin_utilization, 2),
-            "available margin" : round(available_margin, 2),
-            "realized profits n loss(pnl)" : round(realized_pnl, 2),
-            "unrealized pnl" : round(unrealized_pnl, 2)
-            
+            "available margin": round(available_margin, 2),
+            "realized profits n loss(pnl)": round(realized_pnl, 2),
+            "unrealized pnl": round(unrealized_pnl, 2)
         }
         # Pass this to the transactions data
-        wallet_history = self.api.get_transactions() 
-        positions = self.api.get_positions()# This would depend on the exact Bitmex API
-        results = get_trading_performance_summary(wallet_history, positions) 
+        wallet_history = self.api.get_transactions()
+        positions = self.api.get_positions()  # This would depend on the exact Bitmex API
+        results = get_trading_performance_summary(wallet_history, positions)
         return results
-    
+
     def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=1, iterations_before_sleep=2):
         start_time = time.time()
         sast_now = get_sast_time()
         Banner = """
 
         ┏━━━✦❘༻༺❘✦━━━┓
-                  Welcome to
-                   
-                 ᙏα𝜏𝜏ҽGɾҽҽɳ
- 
+                Welcome to
+                
+                ᙏα𝜏𝜏ҽGɾҽҽɳ
+    
         ┗━━━✦❘༻༺❘✦━━━┛
-        
-        'Where the green make u happy😊' 
+            
+        'Where the green make u happy😊'
         """
-        self.logger.info(Banner) 
+        self.logger.info(Banner)
         self.logger.info(f"Starting MatteGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Starting MatteGreen at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -488,7 +469,7 @@ class MatteGreen:
         iteration = 0
         while (time.time() - start_time) < max_runtime_minutes * 60:
             sast_now = get_sast_time()
-            self.sync_current_trades() 
+            self.sync_current_trades()
             self.logger.info(f"🤔📈🕵🏽‍♂️🔍🔎Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -508,17 +489,16 @@ class MatteGreen:
                 elif signal['action'] == 'entry':
                     self.execute_entry(signal)
                     signal_found = True
-                
 
             performance = self.calculate_performance()
             self.logger.info(f"Performance: \nOverview: {performance['overview']} \n\nprofits :{performance['profit_metrics']}\n\nMetadata: {performance['metadata']}")
 
             if self.bot:
                 fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
-                caption = (f"📸Scan {iteration+1}\nTimestamp: {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                caption = (f"📸Scan {iteration + 1}\nTimestamp: {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
                            f"Symbol: {self.symbol}\nSignal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice @ ${self.df['close'][-1]}")
                 self.bot.send_photo(fig=fig, caption=caption)
-            self.logger.info(f"({self.symbol})Price @ ${self.df['close'][-1]} \n\n 😪😪😪sleepining for {scan_interval/60} minutes....") 
+            self.logger.info(f"({self.symbol})Price @ ${self.df['close'][-1]} \n\n 😪😪😪sleepining for {scan_interval / 60} minutes....")
             time.sleep(scan_interval)
             iteration += 1
 
@@ -528,11 +508,10 @@ class MatteGreen:
                 time.sleep(sleep_interval_minutes * 60)
                 self.logger.info("🙋🏾‍♂️Resuming...")
                 print("Resuming...")
-       
+
         self.logger.info("MatteGreen stopped.")
         final_performance = self.calculate_performance()
         self.api.close_all_positions()
-        #self.logger.info(f"Final performance: {final_performance}")
         if self.bot:
             fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
             caption = (f"🏁Final Results\nTotal Trades: {final_performance['total_trades']}\n"
