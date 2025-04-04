@@ -419,7 +419,7 @@ class MatteGreen:
                 
 
             performance = self.calculate_performance()
-            self.logger.info(f"Performance: \nOverview: {performance['overview']} \profits :{performance['profit_metrics']}\nMetadata: {performance['metadata']}")
+            self.logger.info(f"Performance: \nOverview: {performance['overview']} \n\nprofits :{performance['profit_metrics']}\n\nMetadata: {performance['metadata']}")
 
             if self.bot:
                 fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
