@@ -154,7 +154,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error retrieving candle data: {str(e)}")
             return None
 
-    def open_test_position(self, side="Buy", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None):
+    def open_test_position(self, side="Buy", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None, clOrdID=None):
         """
         Open a trading position with optional Take Profit and Stop Loss orders.
 
@@ -202,13 +202,15 @@ class BitMEXTestAPI:
                 elif available_balance_usd <= 0:
                     self.logger.warning("Zero or negative balance")
                     return None
-
+            if clOrdID == None :
+                clOrdID = 'No strings attached' 
             # Prepare entry order
             order_params = {
                 "symbol": self.symbol,
                 "side": normalized_side,
                 "orderQty": abs(int(quantity)) if abs(int(quantity)) < 20 else 5,
-                "ordType": order_type
+                "ordType": order_type, 
+                "clOrdID": clOrdID
             }
             if order_type == "Limit":
                 if price is None:
