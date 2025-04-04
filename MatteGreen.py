@@ -154,7 +154,7 @@ class MatteGreen:
                 if (self.df['low'].iloc[i-2] - self.df['high'].iloc[i]) > self.fvg_threshold * self.df['close'].iloc[i]:
                     self.fvg_areas.append((i-2, i, self.df['high'].iloc[i], self.df['low'].iloc[i-2], 'bearish'))
                     
-      def execute_trades(self):
+    def execute_trades(self):
         signals = []
         current_idx = len(self.df) - 1
         current_price = self.df['close'].iloc[current_idx]
