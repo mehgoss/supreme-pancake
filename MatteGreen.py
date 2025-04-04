@@ -55,7 +55,8 @@ class MatteGreen:
         self.market_bias = 'neutral'
 
         # MongoDB Setup
-        self.mongo_client = pymongo.MongoClient(os.getenv("DBURL"))  # Adjust connection string if using Atlas
+        self.mongo_client = pymongo.MongoClient(os.getenv("DBURL"), connectTimeoutMS=30000,
+    socketTimeoutMS=30000)  # Adjust connection string if using Atlas
         self.db = self.mongo_client["mattegreen_db"]
         self.current_trades_collection = self.db["current_trades"]
         self.closed_trades_collection = self.db["closed_trades"]
