@@ -104,7 +104,14 @@ class BitMEXTestAPI:
         except Exception as e:
             self.logger.error(f"Error getting profile information: {str(e)}")
             return None
-
+    def get_transactions(self):
+        """Set transactions data directly."""
+        wallet_history = self.api.client.User.User_getWalletHistory().result()[0]
+        return wallet_history 
+    def get_positions(self):
+        """Set transactions data directly."""
+        positions = self.api.client.Position.Position_get().result()[0]  # This would depend on the exact Bitmex API
+        return positions 
     def get_candle(self, timeframe='1m', count=100):
         """
         Retrieve candlestick (OHLCV) data for the specified symbol.
