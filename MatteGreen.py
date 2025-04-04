@@ -140,7 +140,9 @@ class MatteGreen:
                 self.current_balance += pl
                 self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': entry_price,
                                     'exit_price': round(stop_loss, 4), 'direction': direction, 'pl': pl, 'result': 'loss'})
+                
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
+                self.execute_exit({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
                 self.logger.info(f"🔴❗Exit: {direction} stopped out at {stop_loss}")
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
@@ -150,6 +152,7 @@ class MatteGreen:
                 self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': round(entry_price, 2),
                                     'exit_price': round(take_profit, 4), 'direction': direction, 'pl': pl, 'result': 'win'})
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
+                self.execute_exit({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
                 self.logger.info(f"Exit: {direction} took profit at {take_profit}📈🎉🎉🔵🔵")
     
@@ -205,6 +208,9 @@ class MatteGreen:
         entry_idx = signal['entry_idx']
         trade_id = signal.get('trade_id')  # Get the trade_id from the signal
         sast_now = get_sast_time()
+        if reason =!'exit':
+           self.logger.info(f"trying to close a non closing position ") 
+
     
         for trade in list(self.current_trades):
             stored_trade_id, idx, entry_price, trade_direction, stop_loss, take_profit, size = trade
