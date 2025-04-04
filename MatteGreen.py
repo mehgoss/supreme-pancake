@@ -217,7 +217,7 @@ class MatteGreen:
             if idx == entry_idx and trade_direction == direction:
                 profile = self.api.get_profile_info()
                 position_open = any(p['symbol'] == self.symbol and p['current_qty'] != 0 for p in profile['positions'])
-                if position_open:
+                if True:
                     try:
                         if trade_id and trade_id == stored_trade_id:  # Ensure we have a valid trade_id
                             import uuid
