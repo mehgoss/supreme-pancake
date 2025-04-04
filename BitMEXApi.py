@@ -200,7 +200,7 @@ class BitMEXTestAPI:
             order_params = {
                 "symbol": self.symbol,
                 "side": normalized_side,
-                "orderQty": abs(int(quantity)),
+                "orderQty": abs(int(quantity)) if abs(int(quantity)) < 20 else 5,
                 "ordType": order_type
             }
             if order_type == "Limit":
