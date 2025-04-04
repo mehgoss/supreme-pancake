@@ -277,6 +277,7 @@ class BitMEXTestAPI:
                         side=side,
                         orderQty=qty,
                         ordType="Market",
+                        execInst='Close', 
                         clOrdID=order_id
                     ).result()[0]
             self.logger.info(f"✔️✔️Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
@@ -310,7 +311,8 @@ class BitMEXTestAPI:
                         symbol=self.symbol,
                         side=side,
                         orderQty=qty,
-                        ordType="Market"
+                        ordType="Market", 
+                        execInst='Close'
                     ).result()[0]
             self.logger.info(f"✔️✔️Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
 
