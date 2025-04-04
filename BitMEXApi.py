@@ -106,7 +106,7 @@ class BitMEXTestAPI:
             return None
     def get_open_orders(self):
         """Set transactions data directly."""
-        open_orders = client.Order.Order_getOrders(filter=json.dumps({"symbol": "SOLUSD" })).result()[0]
+        open_orders = self.client.Order.Order_getOrders(filter=json.dumps({"symbol": "SOLUSD" })).result()[0]
         return open_orders 
     def get_transactions(self):
         """Set transactions data directly."""
