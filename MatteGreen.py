@@ -87,7 +87,7 @@ class MatteGreen:
             # Build a dictionary of open trades from the exchange
             exchange_trades = {}
             for order in open_orders:
-                if 'clOrdID' not in order or not order.get('clOrdID'):
+                if 'clOrdID' not in order or not order.get('clOrdID') and order == None or len(order) < 5:
                     continue
                 try:
                     symbol, date_str, tp_sl, status, uid = order['clOrdID'].split('---')
