@@ -12,6 +12,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 from BitMEXApi import BitMEXTestAPI
 from TeleLogBot import configure_logging, TelegramBot  # Import refined TeleLogBot
+from PerfCalc import get_trading_performance_summary
 
 load_dotenv()
 
@@ -56,7 +57,7 @@ class MatteGreen:
         try:
             #data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period * 2)
             
-            data = yf.download(tickers=self.symbol, interval=self.timeframe, period='1d') 
+            data = yf.download(tickers=self.symbol, interval=self.timeframe, period='2d') 
             data.columns = [I[0].lower() for I in data.columns] 
             if data is None or data.empty:
                 self.logger.error("No data from Yfinance API")
@@ -344,7 +345,7 @@ class MatteGreen:
         # Margin Utilization: How much margin is used compared to available funds
         margin_utilization = ((margin_balance - available_margin) / margin_balance) * 100 if margin_balance > 0 else 0
 
-        return {
+        example_returns = {
             "total_trades": total_trades,
             "win_rate": round(win_rate, 2),
             "profit_factor": round(profit_factor, 2),
@@ -355,7 +356,12 @@ class MatteGreen:
             "realized profits n loss(pnl)" : round(realized_pnl, 2),
             "unrealized pnl" : round(unrealized_pnl, 2)
             
-        } 
+        }
+        # Pass this to the transactions data
+        wallet_history = self.api.get_transactions() 
+        positions = self.api.get_positions()# This would depend on the exact Bitmex API
+        results = get_trading_performance_summary(wallet_history, positions) 
+        return results
     
     def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=1, iterations_before_sleep=2):
         start_time = time.time()
