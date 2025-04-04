@@ -22,6 +22,12 @@ def get_sast_time():
     return utc_now.replace(tzinfo=pytz.utc).astimezone(sast)
 
 class MatteGreen:
+        import pymongo
+import uuid
+
+load_dotenv()
+
+class MatteGreen:
     def __init__(self, api_key, api_secret, test=True, symbol="SOL-USD", timeframe="5m",
                  initial_capital=10000, risk_per_trade=0.02, rr_ratio=1.25, lookback_period=20,
                  fvg_threshold=0.003, telegram_token=None, telegram_chat_id=None, log=None):
@@ -47,12 +53,37 @@ class MatteGreen:
         self.choch_points = []
         self.bos_points = []
         self.fvg_areas = []
-        self.current_trades = []
-        self.trades = []
+        self.current_trades = []  # Will sync with MongoDB
+        self.trades = []  # Will sync with MongoDB
         self.equity_curve = [initial_capital]
         self.market_bias = 'neutral'
-        self.logger.info(f"MatteGreen initialized for {symbol} on {timeframe}")
 
+        # MongoDB Setup
+        self.mongo_client = pymongo.MongoClient(os.getenv("DBURL"))  # Adjust connection string if using Atlas
+        self.db = self.mongo_client["mattegreen_db"]
+        self.current_trades_collection = self.db["current_trades"]
+        self.closed_trades_collection = self.db["closed_trades"]
+
+        # Ensure indexes for faster queries
+        self.current_trades_collection.create_index("clord_id", unique=True)
+        self.closed_trades_collection.create_index("clord_id", unique=True)
+
+        self.logger.info(f"MatteGreen initialized for {symbol} on {timeframe}")
+    def sync_current_trades(self):
+        """Sync local current_trades with MongoDB."""
+        self.current_trades = []
+        for trade in self.current_trades_collection.find({"status": "open"}):
+            self.current_trades.append((
+                trade["trade_id"],
+                trade["entry_idx"],
+                trade["entry_price"],
+                trade["direction"],
+                trade["stop_loss"],
+                trade["take_profit"],
+                trade["position_size"]
+            ))
+        self.logger.info(f"Synced {len(self.current_trades)} current trades from MongoDB")
+        
     def get_market_data(self):
         try:
             #data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period * 2)
@@ -123,39 +154,59 @@ class MatteGreen:
                 if (self.df['low'].iloc[i-2] - self.df['high'].iloc[i]) > self.fvg_threshold * self.df['close'].iloc[i]:
                     self.fvg_areas.append((i-2, i, self.df['high'].iloc[i], self.df['low'].iloc[i-2], 'bearish'))
                     
-    def execute_trades(self):
+      def execute_trades(self):
         signals = []
         current_idx = len(self.df) - 1
         current_price = self.df['close'].iloc[current_idx]
-    
-        total_risk_amount = sum(abs(entry_price - stop_loss) * size for _, _, entry_price, _, stop_loss, _, size in self.current_trades)
+        
+        # Sync local state with MongoDB
+        self.sync_current_trades()
+        
+        total_risk_amount = sum(abs(trade[2] - trade[4]) * trade[6] for trade in self.current_trades)  # entry_price - stop_loss * size
         max_total_risk = self.current_balance * 0.20
-    
-        # Check for exits (stop loss or take profit)
+        
+        # Check for exits
         for trade in list(self.current_trades):
             trade_id, idx, entry_price, direction, stop_loss, take_profit, size = trade
             if (direction == 'long' and self.df['low'].iloc[current_idx] <= stop_loss) or \
                (direction == 'short' and self.df['high'].iloc[current_idx] >= stop_loss):
                 pl = (stop_loss - entry_price) * size if direction == 'long' else (entry_price - stop_loss) * size
                 self.current_balance += pl
-                self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': entry_price,
-                                    'exit_price': round(stop_loss, 4), 'direction': direction, 'pl': pl, 'result': 'loss'})
-                
+                trade_doc = self.current_trades_collection.find_one({"trade_id": trade_id, "entry_idx": idx})
+                if trade_doc:
+                    self.closed_trades_collection.insert_one({
+                        **trade_doc,
+                        "exit_idx": current_idx,
+                        "exit_price": round(stop_loss, 4),
+                        "pl": pl,
+                        "result": "loss",
+                        "exit_time": get_sast_time().isoformat(),
+                        "status": "closed"
+                    })
+                    self.current_trades_collection.delete_one({"trade_id": trade_id, "entry_idx": idx})
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
-                self.execute_exit({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
                 self.logger.info(f"🔴❗Exit: {direction} stopped out at {stop_loss}")
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
                  (direction == 'short' and self.df['low'].iloc[current_idx] <= take_profit):
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
                 self.current_balance += pl
-                self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': round(entry_price, 2),
-                                    'exit_price': round(take_profit, 4), 'direction': direction, 'pl': pl, 'result': 'win'})
+                trade_doc = self.current_trades_collection.find_one({"trade_id": trade_id, "entry_idx": idx})
+                if trade_doc:
+                    self.closed_trades_collection.insert_one({
+                        **trade_doc,
+                        "exit_idx": current_idx,
+                        "exit_price": round(take_profit, 4),
+                        "pl": pl,
+                        "result": "win",
+                        "exit_time": get_sast_time().isoformat(),
+                        "status": "closed"
+                    })
+                    self.current_trades_collection.delete_one({"trade_id": trade_id, "entry_idx": idx})
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
-                self.execute_exit({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
                 self.logger.info(f"Exit: {direction} took profit at {take_profit}📈🎉🎉🔵🔵")
-    
+        
         # Check for new entries
         if len(self.current_trades) < 3 and current_idx >= self.lookback_period:
             direction = 'long' if self.market_bias == 'bullish' else 'short' if self.market_bias == 'bearish' else None
@@ -168,17 +219,16 @@ class MatteGreen:
                 take_profit = entry_price + stop_dist * (self.rr_ratio * 0.5/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.5/2)
                 size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
                 risk_of_new_trade = abs(entry_price - stop_loss) * size
-    
+        
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
                                     'take_profit': round(take_profit, 4), 'position_size': int(size), 'entry_idx': current_idx})
-                    self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size))  # trade_id will be set in execute_entry
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
-    
+        
         self.equity_curve.append(self.current_balance)
         return signals
-        
-    def execute_entry(self, signal):
+            
+     def execute_entry(self, signal):
         side = signal['side']
         price = signal['price']
         stop_loss = signal['stop_loss']
@@ -186,81 +236,121 @@ class MatteGreen:
         position_size = signal['position_size']
         entry_idx = signal['entry_idx']
         sast_now = get_sast_time()
-    
+        
         pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
         pos_quantity = max(2, int(position_size))
-    
+        
+        # Generate clord_id
+        date_str = sast_now.strftime('%Y%m%d_%H%M%S')
+        tp_int = int(take_profit * 10000)  # Convert to integer (e.g., remove decimals for ID)
+        sl_int = int(stop_loss * 10000)
+        uid = str(uuid.uuid4())[:8]  # Shortened UUID for uniqueness
+        clord_id = f"({self.symbol})---({date_str})---({price},{side},{position_size},{entry_idx})---(Tp{tp_int},Sl{sl_int})---{uid}"
+        
+        # Execute trade on BitMEX
         orders = self.api.open_test_position(side=pos_side, quantity=pos_quantity, order_type="Market",
                                              take_profit_price=take_profit, stop_loss_price=stop_loss)
+        trade_id = None
         if orders and orders['entry']:
             trade_id = orders['entry']['orderID']
-            # Append the trade as a tuple with the trade_id
-            self.current_trades.append((trade_id, entry_idx, price, side, stop_loss, take_profit, position_size))
             self.logger.info(f"📈🎉🎉Opened {pos_side} at {price}, SL: {stop_loss}, TP: {take_profit}, ID: {trade_id}")
         else:
             self.logger.warning(f"Order failed, using local ID {entry_idx}")
-            # Append a new trade with entry_idx as the ID if the order fails
-            self.current_trades.append((entry_idx, entry_idx, price, side, stop_loss, take_profit, position_size))
+            trade_id = entry_idx  # Fallback to entry_idx if BitMEX fails
+    
+        # Trade document for MongoDB
+        trade_doc = {
+            "clord_id": clord_id,
+            "trade_id": trade_id,
+            "entry_idx": entry_idx,
+            "entry_price": round(price, 2),
+            "direction": side,
+            "stop_loss": round(stop_loss, 4),
+            "take_profit": round(take_profit, 4),
+            "position_size": int(position_size),
+            "entry_time": sast_now.isoformat(),
+            "status": "open"
+        }
+    
+        # Insert into MongoDB
+        self.current_trades_collection.insert_one(trade_doc)
+        self.current_trades.append((trade_id, entry_idx, price, side, stop_loss, take_profit, position_size))  # Keep local for now
+        self.logger.info(f"Trade stored in MongoDB with clord_id: {clord_id}")
+   
     def execute_exit(self, signal):
         reason = signal['reason']
         price = signal['price']
         direction = signal['direction']
         entry_idx = signal['entry_idx']
-        trade_id = signal.get('trade_id')  # Get the trade_id from the signal
+        trade_id = signal.get('trade_id')
         sast_now = get_sast_time()
-        if reason != 'exit':
-           self.logger.info(f"trying to close a non closing position ") 
-
-    
-        for trade in list(self.current_trades):
-            stored_trade_id, idx, entry_price, trade_direction, stop_loss, take_profit, size = trade
-            if idx == entry_idx and trade_direction == direction:
-                profile = self.api.get_profile_info()
-                position_open = any(p['symbol'] == self.symbol and p['current_qty'] != 0 for p in profile['positions'])
-                if position_open:
-                    try:
-                        if trade_id and trade_id == stored_trade_id:  # Ensure we have a valid trade_id
-                            import uuid
-                            uuid_obj = uuid.UUID(trade_id)  # Use the trade_id from the signal
-                            self.api.close_position(uuid_obj)
-                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
-                            self.current_balance += pl
-                            self.equity_curve.append(self.current_balance)
-                            #self.current_trades.remove(trade)
-                            self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
-                            self.logger.info(f"❗❗🔴 Closed position \nID: {trade_id}")
-                        else:
-                            self.logger.warning(f"No valid trade_id for position, attempting to close manually")
-                            # Fallback: Close the position without a trade_id (e.g., market order in opposite direction)
-                            self.api.close_all_positions()  # This should be replaced with a more targeted approach
-                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
-                            self.current_balance += pl
-                            self.equity_curve.append(self.current_balance)
-                            #self.current_trades.remove(trade)
-                            self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
-                            self.logger.info(f"❗❗❗🔴 Closed All position.....")
-                    except Exception as e:
-                        self.logger.error(f"Failed to close position with ID {trade_id}: {str(e)}")
-                        # Retry or handle the error more gracefully
-                        try:
-                            self.api.close_all_positions()  # Fallback (replace with a better approach)
-                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
-                            self.current_balance += pl
-                            self.equity_curve.append(self.current_balance)
-                            #self.current_trades.remove(trade)
-                            self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
-                            self.logger.info(f"❗❗❗🔴 Closed All position.....")
-                        except:
-                            self.logger.error(f"🔴🔴🔴❗❗❗ Can't close positions")
-                else:
-                    self.api.close_all_positions()
-                    # No position open on the exchange, update local state
+        
+        trade_doc = self.current_trades_collection.find_one({"trade_id": trade_id, "entry_idx": entry_idx})
+        if not trade_doc:
+            self.logger.error(f"No trade found in MongoDB for trade_id: {trade_id}, entry_idx: {entry_idx}")
+            return
+        
+        entry_price = trade_doc["entry_price"]
+        size = trade_doc["position_size"]
+        
+        profile = self.api.get_profile_info()
+        position_open = any(p['symbol'] == self.symbol and p['current_qty'] != 0 for p in profile['positions'])
+        if position_open:
+            try:
+                if trade_id:
+                    uuid_obj = uuid.UUID(trade_id)
+                    self.api.close_position(uuid_obj)
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
                     self.equity_curve.append(self.current_balance)
-                    self.current_trades.remove(trade)
-                    self.logger.info(f"Manually closed {direction} at {price}, Reason: {reason}, PnL: {pl}")
-                break
+                    self.closed_trades_collection.insert_one({
+                        **trade_doc,
+                        "exit_idx": entry_idx,
+                        "exit_price": round(price, 4),
+                        "pl": pl,
+                        "result": "win" if reason == "takeprofit" else "loss",
+                        "exit_time": sast_now.isoformat(),
+                        "status": "closed"
+                    })
+                    self.current_trades_collection.delete_one({"trade_id": trade_id, "entry_idx": entry_idx})
+                    self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
+                    self.logger.info(f"❗❗🔴 Closed position \nID: {trade_id}")
+            except Exception as e:
+                self.logger.error(f"Failed to close position with ID {trade_id}: {str(e)}")
+                self.api.close_all_positions()  # Fallback
+                pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                self.current_balance += pl
+                self.equity_curve.append(self.current_balance)
+                self.closed_trades_collection.insert_one({
+                    **trade_doc,
+                    "exit_idx": entry_idx,
+                    "exit_price": round(price, 4),
+                    "pl": pl,
+                    "result": "win" if reason == "takeprofit" else "loss",
+                    "exit_time": sast_now.isoformat(),
+                    "status": "closed"
+                })
+                self.current_trades_collection.delete_one({"trade_id": trade_id, "entry_idx": entry_idx})
+                self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
+        else:
+            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+            self.current_balance += pl
+            self.equity_curve.append(self.current_balance)
+            self.closed_trades_collection.insert_one({
+                **trade_doc,
+                "exit_idx": entry_idx,
+                "exit_price": round(price, 4),
+                "pl": pl,
+                "result": "win" if reason == "takeprofit" else "loss",
+                "exit_time": sast_now.isoformat(),
+                "status": "closed"
+            })
+            self.current_trades_collection.delete_one({"trade_id": trade_id, "entry_idx": entry_idx})
+            self.logger.info(f"Manually closed {direction} at {price}, Reason: {reason}, PnL: {pl}")
+        
+        self.sync_current_trades()  # Resync after closing
+        
+        
     def visualize_results(self, start_idx=0, end_idx=None):
         if end_idx is None:
             end_idx = len(self.df)
@@ -398,6 +488,7 @@ class MatteGreen:
         iteration = 0
         while (time.time() - start_time) < max_runtime_minutes * 60:
             sast_now = get_sast_time()
+            self.sync_current_trades() 
             self.logger.info(f"🤔📈🕵🏽‍♂️🔍🔎Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"Scan {iteration + 1} started at {sast_now.strftime('%Y-%m-%d %H:%M:%S')}")
 
