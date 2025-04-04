@@ -226,7 +226,7 @@ class MatteGreen:
                             pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                             self.current_balance += pl
                             self.equity_curve.append(self.current_balance)
-                            self.current_trades.remove(trade)
+                            #self.current_trades.remove(trade)
                             self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
                             self.logger.info(f"❗❗🔴 Closed position \nID: {trade_id}")
                         else:
@@ -236,7 +236,7 @@ class MatteGreen:
                             pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                             self.current_balance += pl
                             self.equity_curve.append(self.current_balance)
-                            self.current_trades.remove(trade)
+                            #self.current_trades.remove(trade)
                             self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
                             self.logger.info(f"❗❗❗🔴 Closed All position.....")
                     except Exception as e:
@@ -247,12 +247,13 @@ class MatteGreen:
                             pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                             self.current_balance += pl
                             self.equity_curve.append(self.current_balance)
-                            self.current_trades.remove(trade)
+                            #self.current_trades.remove(trade)
                             self.logger.info(f"Closed by BitMEX: {direction} at {price}, Reason: {reason}, PnL: {pl}")
                             self.logger.info(f"❗❗❗🔴 Closed All position.....")
                         except:
                             self.logger.error(f"🔴🔴🔴❗❗❗ Can't close positions")
                 else:
+                    self.api.close_all_positions()
                     # No position open on the exchange, update local state
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
@@ -436,9 +437,10 @@ class MatteGreen:
                 time.sleep(sleep_interval_minutes * 60)
                 self.logger.info("🙋🏾‍♂️Resuming...")
                 print("Resuming...")
-
+       
         self.logger.info("MatteGreen stopped.")
         final_performance = self.calculate_performance()
+        self.api.close_all_positions()
         #self.logger.info(f"Final performance: {final_performance}")
         if self.bot:
             fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
