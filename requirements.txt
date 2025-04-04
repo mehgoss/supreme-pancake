@@ -16,6 +16,7 @@ pandas
 # Utility Libraries
 python-dotenv
 pytz
+pymongo 
 
 # Optional: Logging and Environment Support (already native to Python, but listed for completeness)
 # logging (native)
