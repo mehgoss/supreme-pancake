@@ -104,6 +104,10 @@ class BitMEXTestAPI:
         except Exception as e:
             self.logger.error(f"Error getting profile information: {str(e)}")
             return None
+    def get_open_orders(self):
+        """Set transactions data directly."""
+        open_orders = client.Order.Order_getOrders(filter=json.dumps({"symbol": "SOLUSD" })).result()[0]
+        return open_orders 
     def get_transactions(self):
         """Set transactions data directly."""
         wallet_history = self.client.User.User_getWalletHistory().result()[0]
