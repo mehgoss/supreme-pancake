@@ -208,7 +208,7 @@ class MatteGreen:
         entry_idx = signal['entry_idx']
         trade_id = signal.get('trade_id')  # Get the trade_id from the signal
         sast_now = get_sast_time()
-        if reason =!'exit':
+        if reason != 'exit':
            self.logger.info(f"trying to close a non closing position ") 
 
     
