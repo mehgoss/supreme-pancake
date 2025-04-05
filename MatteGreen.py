@@ -316,7 +316,7 @@ class MatteGreen:
         sast_now = get_sast_time()
 
         date_str = sast_now.strftime("%Y%m%d%H%M%S")
-        uid = str(uuid.uuid4())[:8]
+        uid = str(uuid.uuid4())[:6]
         clord_id = f"({self.symbol});({date_str});({uid})"  # 27 chars for SOL-USD
         text = f"('open');('entry');({price}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
 
