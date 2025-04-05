@@ -91,7 +91,6 @@ def update_clOrderID_string(clord_id, text=None, **updates):
         for key, value in updates.items():
             temp[key] = value
     
-    # Construct new clOrdID (ensure <= 36 chars, UUID limited to 6)
     new_clord_id = f"({temp['symbol']});({temp['date']});({temp['uuid'][:6]})"
     if len(new_clord_id) > 36:
         excess = len(new_clord_id) - 36
@@ -100,7 +99,6 @@ def update_clOrderID_string(clord_id, text=None, **updates):
         if len(new_clord_id) > 36:
             raise ValueError(f"clOrdID still exceeds 36 characters after truncation: {new_clord_id}")
 
-    # Construct text field
     new_text = f"({temp['status']});({temp['action']});({temp['price']}, {temp['position_size']}, {temp['side']}, {temp['entry_idx']});({temp['take_profit']}, {temp['stop_loss']})"
     
     return new_clord_id, new_text
@@ -166,30 +164,34 @@ class MatteGreen:
             
             exchange_trades = {}
             for order in open_orders:
-                if 'clOrdID' not in order or not order.get('clOrdID') :
-                    self.logger.warning(f"Skipping order with no clOrdID: {order}")
+                clord_id = order.get('clOrdID')
+                if not clord_id:
+                    self.logger.debug(f"Skipping order with no clOrdID: {order['clOrdID']}")
                     continue
+                text = order.get('text', '')
+                self.logger.debug(f"Processing order: clOrdID='{clord_id}', text='{text}'")
                 try:
-                    text = order.get('text', '')
-                    clOrderID = clOrderID_string(order['clOrdID'], text)
-                    if clOrderID['symbol'] != self.symbol or clOrderID['status'].lower() != 'open':
+                    clOrderID = clOrderID_string(clord_id, text)
+                    if clOrderID['symbol'].replace('-', '') != self.symbol.replace('-', ''):
+                        self.logger.debug(f"Skipping order for different symbol: {clOrderID['symbol']} vs {self.symbol}")
                         continue
-                    exchange_trades[order['clOrdID']] = (
-                        order['clOrdID'],
+                    exchange_trades[clord_id] = (
+                        order.get('orderID', clord_id),
                         int(clOrderID['entry_idx']),
                         float(clOrderID['price']),
                         clOrderID['side'],
                         float(clOrderID['stop_loss']),
                         float(clOrderID['take_profit']),
                         int(clOrderID['position_size']),
-                        order['clOrdID'],
+                        clord_id,
                         text
                     )
+                    self.logger.info(f"Successfully parsed order: clOrdID={clord_id}, side={clOrderID['side']}, price={clOrderID['price']}")
                 except IndexError as e:
-                    self.logger.warning(f"Invalid clOrdID format or data: {order.get('clOrdID', 'Unknown')} - {str(e)}")
+                    self.logger.warning(f"Invalid clOrdID format or data: {clord_id} - {str(e)}")
                     continue
                 except (ValueError, AttributeError) as e:
-                    self.logger.warning(f"Invalid clOrdID format or data: {order.get('clOrdID', 'Unknown')} - {str(e)}")
+                    self.logger.warning(f"Invalid clOrdID format or data: {clord_id} - {str(e)}")
                     continue
             
             local_clord_ids = {trade[7] for trade in self.current_trades if trade[7]}
@@ -215,6 +217,8 @@ class MatteGreen:
                 if clord_id not in local_clord_ids:
                     self.logger.info(f"Adding missing trade from exchange: {clord_id}")
                     self.current_trades.append(trade_data)
+            
+            self.logger.debug(f"Current trades after sync: {self.current_trades}")
                
         except Exception as e:
             self.logger.error(f"Failed to sync open orders: {str(e)}")
@@ -312,7 +316,7 @@ class MatteGreen:
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
                                     'take_profit': round(take_profit, 4), 'position_size': int(size), 'entry_idx': current_idx})
-                    self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None))  # clord_id and text set in execute_entry
+                    self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None))
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
     
         self.equity_curve.append(self.current_balance)
@@ -328,8 +332,8 @@ class MatteGreen:
         sast_now = get_sast_time()
 
         date_str = sast_now.strftime("%Y%m%d%H%M%S")
-        uid = str(uuid.uuid4())[:6]  # Limited to 6 characters
-        clord_id = f"({self.symbol});({date_str});({uid})"  # 25 chars for SOL-USD
+        uid = str(uuid.uuid4())[:6]
+        clord_id = f"({self.symbol});({date_str});({uid})"
         text = f"('open');('entry');({price}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
 
         self.logger.info(f"Opening position with clOrdID: '{clord_id}' (length: {len(clord_id)}), text: '{text}'")
