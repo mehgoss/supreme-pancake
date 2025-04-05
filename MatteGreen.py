@@ -83,10 +83,15 @@ def update_clOrderID_string(clord_id, text=None, **updates):
         for key, value in updates.items():
             temp[key] = value
     
-    # Construct new clOrdID (32 char max)
+    # Construct new clOrdID (ensure <= 36 chars)
     new_clord_id = f"({temp['symbol']})---({temp['date']})---({temp['uuid']})"
-    if len(new_clord_id) > 32:
-        raise ValueError("clOrdID exceeds 32 character limit even after truncation")
+    if len(new_clord_id) > 36:
+        # Truncate symbol or UUID if necessary
+        excess = len(new_clord_id) - 36
+        temp['uuid'] = temp['uuid'][:8 - excess]  # Shorten UUID
+        new_clord_id = f"({temp['symbol']})---({temp['date']})---({temp['uuid']})"
+        if len(new_clord_id) > 36:
+            raise ValueError(f"clOrdID still exceeds 36 characters after truncation: {new_clord_id}")
 
     # Construct text field
     new_text = f"({temp['status']})---({temp['action']})---({temp['price']}, {temp['position_size']}, {temp['side']}, {temp['entry_idx']})---({temp['take_profit']}, {temp['stop_loss']})"
@@ -123,7 +128,7 @@ class MatteGreen:
         self.trades = []
         self.equity_curve = [initial_capital]
         self.market_bias = 'neutral'
-        self.logger.info(f"MatteGreen initialized for {symbol} on {timeframe}")
+        self.logger資訊(f"MatteGreen initialized for {symbol} on {timeframe}")
 
     def get_market_data(self):
         try:
@@ -312,22 +317,33 @@ class MatteGreen:
 
         date_str = sast_now.strftime("%Y%m%d%H%M%S")
         uid = str(uuid.uuid4())[:8]
-        clord_id = f"({self.symbol})---({date_str})---({uid})"  # Fits within 32 chars
+        clord_id = f"({self.symbol})---({date_str})---({uid})"  # 31 chars for SOL-USD
         text = f"('open')---('entry')---({price}, {position_size}, {side}, {entry_idx})---({take_profit}, {stop_loss})"
+
+        # Log the exact values being sent
+        self.logger.info(f"Opening position with clOrdID: '{clord_id}' (length: {len(clord_id)}), text: '{text}'")
+
+        if len(clord_id) > 36:
+            self.logger.error(f"clOrdID exceeds 36 characters: {clord_id}")
+            raise ValueError(f"clOrdID exceeds 36 characters: {clord_id}")
 
         pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
         pos_quantity = max(2, int(position_size))
 
-        orders = self.api.open_test_position(side=pos_side, quantity=pos_quantity, order_type="Market",
-                                             take_profit_price=take_profit, stop_loss_price=stop_loss, 
-                                             clOrdID=clord_id, text=text)
-        if orders and orders.get('entry'):
-            trade_id = orders['entry']['orderID']
-            self.current_trades.append((trade_id, entry_idx, price, side, stop_loss, take_profit, position_size, clord_id, text))
-            self.logger.info(f"📈🎉Opened {pos_side} at {price}, SL: {stop_loss}, TP: {take_profit}, ID: {trade_id}, clOrdID: {clord_id}")
-        else:
-            self.logger.warning(f"Order failed, tracking locally with clOrdID: {clord_id}")
-            self.current_trades.append((None, entry_idx, price, side, stop_loss, take_profit, position_size, clord_id, text))
+        try:
+            orders = self.api.open_test_position(side=pos_side, quantity=pos_quantity, order_type="Market",
+                                                 take_profit_price=take_profit, stop_loss_price=stop_loss, 
+                                                 clOrdID=clord_id, text=text)
+            if orders and orders.get('entry'):
+                trade_id = orders['entry']['orderID']
+                self.current_trades.append((trade_id, entry_idx, price, side, stop_loss, take_profit, position_size, clord_id, text))
+                self.logger.info(f"📈🎉Opened {pos_side} at {price}, SL: {stop_loss}, TP: {take_profit}, ID: {trade_id}, clOrdID: {clord_id}")
+            else:
+                self.logger.warning(f"Order failed, tracking locally with clOrdID: {clord_id}")
+                self.current_trades.append((None, entry_idx, price, side, stop_loss, take_profit, position_size, clord_id, text))
+        except Exception as e:
+            self.logger.error(f"Error opening position: {str(e)}")
+            raise
 
     def execute_exit(self, signal):
         reason = signal['reason']
@@ -344,6 +360,10 @@ class MatteGreen:
                     if trade_id and trade_id == stored_trade_id:
                         new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
                         side = 'long' if trade_direction == 'long' else 'short'
+                        self.logger.info(f"Closing position with clOrdID: '{new_clord_id}' (length: {len(new_clord_id)}), text: '{new_text}'")
+                        if len(new_clord_id) > 36:
+                            self.logger.error(f"clOrdID exceeds 36 characters: {new_clord_id}")
+                            raise ValueError(f"clOrdID exceeds 36 characters: {new_clord_id}")
                         self.api.close_position(side=side, quantity=size, order_type="Market", 
                                                 take_profit_price=take_profit, stop_loss_price=stop_loss, 
                                                 clOrdID=new_clord_id, text=new_text)
