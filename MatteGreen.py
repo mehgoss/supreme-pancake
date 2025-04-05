@@ -24,44 +24,52 @@ def get_sast_time():
     return utc_now.replace(tzinfo=pytz.utc).astimezone(sast)
 
 def clOrderID_string(clord_id, text=None):
-    # Parse clOrdID (short part)
-    parts = clord_id.split(';')
-    symbol = parts[0].strip('(').strip(')')
-    date = parts[1].strip('(').strip(')')
-    uid = parts[2].strip('(').strip(')')
-    
-    # Parse text (long part) if provided
-    if text:
-        text_parts = text.split(';')
-        status = text_parts[0].strip('(').strip(')')
-        action = text_parts[1].strip("'").strip('(').strip(')').replace("'", '').strip()
-        entry_data = text_parts[2].strip('(').strip(')').split(', ')
-        entry_price = entry_data[0]
-        position_size = entry_data[1]
-        direction = entry_data[2]
-        current_idx = entry_data[3]
-        tp_sl_data = text_parts[3].strip('(').strip(')').split(', ')
-        take_profit = tp_sl_data[0]
-        stop_loss = tp_sl_data[1]
-    else:
-        # Default values if no text is provided
-        status = 'open'
-        action = 'entry'
-        entry_price = position_size = direction = current_idx = take_profit = stop_loss = '0'
+    try:
+        parts = clord_id.split(';')
+        if len(parts) < 3:
+            raise IndexError(f"clOrdID has fewer than 3 parts: {clord_id}")
+        symbol = parts[0].strip('(').strip(')')
+        date = parts[1].strip('(').strip(')')
+        uid = parts[2].strip('(').strip(')')
+        
+        if text:
+            text_parts = text.split(';')
+            if len(text_parts) < 4:
+                raise IndexError(f"text has fewer than 4 parts: {text}")
+            status = text_parts[0].strip('(').strip(')')
+            action = text_parts[1].strip("'").strip('(').strip(')').replace("'", '').strip()
+            entry_data = text_parts[2].strip('(').strip(')').split(', ')
+            if len(entry_data) < 4:
+                raise IndexError(f"entry_data has fewer than 4 values: {text_parts[2]}")
+            entry_price = entry_data[0]
+            position_size = entry_data[1]
+            direction = entry_data[2]
+            current_idx = entry_data[3]
+            tp_sl_data = text_parts[3].strip('(').strip(')').split(', ')
+            if len(tp_sl_data) < 2:
+                raise IndexError(f"tp_sl_data has fewer than 2 values: {text_parts[3]}")
+            take_profit = tp_sl_data[0]
+            stop_loss = tp_sl_data[1]
+        else:
+            status = 'open'
+            action = 'entry'
+            entry_price = position_size = direction = current_idx = take_profit = stop_loss = '0'
 
-    return {
-        'action': action,
-        'symbol': symbol,
-        'date': date,
-        'side': direction,
-        'price': round(float(entry_price), 2),
-        'stop_loss': round(float(stop_loss), 4),
-        'take_profit': round(float(take_profit), 4),
-        'position_size': int(position_size),
-        'entry_idx': current_idx,
-        'status': status,
-        'uuid': uid
-    }
+        return {
+            'action': action,
+            'symbol': symbol,
+            'date': date,
+            'side': direction,
+            'price': round(float(entry_price), 2),
+            'stop_loss': round(float(stop_loss), 4),
+            'take_profit': round(float(take_profit), 4),
+            'position_size': int(position_size),
+            'entry_idx': current_idx,
+            'status': status,
+            'uuid': uid
+        }
+    except Exception as e:
+        raise IndexError(f"Failed to parse clOrdID '{clord_id}' or text '{text}': {str(e)}")
 
 def update_clOrderID_string(clord_id, text=None, **updates):
     clOrderID_dict = clOrderID_string(clord_id, text)
@@ -83,12 +91,11 @@ def update_clOrderID_string(clord_id, text=None, **updates):
         for key, value in updates.items():
             temp[key] = value
     
-    # Construct new clOrdID (ensure <= 36 chars)
-    new_clord_id = f"({temp['symbol']});({temp['date']});({temp['uuid']})"
+    # Construct new clOrdID (ensure <= 36 chars, UUID limited to 6)
+    new_clord_id = f"({temp['symbol']});({temp['date']});({temp['uuid'][:6]})"
     if len(new_clord_id) > 36:
-        # Truncate UUID if necessary
         excess = len(new_clord_id) - 36
-        temp['uuid'] = temp['uuid'][:8 - excess]
+        temp['uuid'] = temp['uuid'][:6 - excess]
         new_clord_id = f"({temp['symbol']});({temp['date']});({temp['uuid']})"
         if len(new_clord_id) > 36:
             raise ValueError(f"clOrdID still exceeds 36 characters after truncation: {new_clord_id}")
@@ -156,10 +163,11 @@ class MatteGreen:
             open_orders = self.api.get_open_orders() or []
             positions = self.api.get_positions() or []
             self.logger.info(f"🔁Syncing: Found {len(open_orders)} open orders and {len(positions)} positions.")
-    
+            
             exchange_trades = {}
             for order in open_orders:
-                if 'clOrdID' not in order or not order.get('clOrdID'):
+                if 'clOrdID' not in order or not order.get('clOrdID') in [None, 'No strings attached'] :
+                    self.logger.warning(f"Skipping order with no clOrdID: {order}")
                     continue
                 try:
                     text = order.get('text', '')
@@ -167,19 +175,23 @@ class MatteGreen:
                     if clOrderID['symbol'] != self.symbol or clOrderID['status'].lower() != 'open':
                         continue
                     exchange_trades[order['clOrdID']] = (
-                        order['clOrdID'], 
-                        int(clOrderID['entry_idx']), 
-                        float(clOrderID['price']), 
-                        clOrderID['side'], 
-                        float(clOrderID['stop_loss']), 
-                        float(clOrderID['take_profit']), 
-                        int(clOrderID['position_size']), 
+                        order['clOrdID'],
+                        int(clOrderID['entry_idx']),
+                        float(clOrderID['price']),
+                        clOrderID['side'],
+                        float(clOrderID['stop_loss']),
+                        float(clOrderID['take_profit']),
+                        int(clOrderID['position_size']),
                         order['clOrdID'],
                         text
                     )
-                except (ValueError, AttributeError) as e:  
+                except IndexError as e:
                     self.logger.warning(f"Invalid clOrdID format or data: {order.get('clOrdID', 'Unknown')} - {str(e)}")
-    
+                    continue
+                except (ValueError, AttributeError) as e:
+                    self.logger.warning(f"Invalid clOrdID format or data: {order.get('clOrdID', 'Unknown')} - {str(e)}")
+                    continue
+            
             local_clord_ids = {trade[7] for trade in self.current_trades if trade[7]}
             exchange_clord_ids = set(exchange_trades.keys())
 
@@ -316,11 +328,10 @@ class MatteGreen:
         sast_now = get_sast_time()
 
         date_str = sast_now.strftime("%Y%m%d%H%M%S")
-        uid = str(uuid.uuid4())[:6]
-        clord_id = f"({self.symbol});({date_str});({uid})"  # 27 chars for SOL-USD
+        uid = str(uuid.uuid4())[:6]  # Limited to 6 characters
+        clord_id = f"({self.symbol});({date_str});({uid})"  # 25 chars for SOL-USD
         text = f"('open');('entry');({price}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
 
-        # Log the exact values being sent
         self.logger.info(f"Opening position with clOrdID: '{clord_id}' (length: {len(clord_id)}), text: '{text}'")
 
         if len(clord_id) > 36:
