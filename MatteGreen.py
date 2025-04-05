@@ -182,7 +182,7 @@ class MatteGreen:
                 clord_id = trade[7]
                 if clord_id and clord_id not in exchange_clord_ids:
                     self.logger.info(f"Trade {clord_id} not found in open orders, marking as closed.")
-                    trade_id, entry_idx, entry_price, direction, stop_loss, take_profit-le, size, _, text = trade
+                    trade_id, entry_idx, entry_price, direction, stop_loss, take_profit, size, _, text = trade
                     exit_price = stop_loss if direction == 'long' and self.df['low'].iloc[-1] <= stop_loss else take_profit
                     pl = (exit_price - entry_price) * size if direction == 'long' else (entry_price - exit_price) * size
                     self.trades.append({
