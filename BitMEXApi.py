@@ -158,7 +158,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error retrieving candle data: {str(e)}")
             return None
 
-    def open_test_position(self, side="Buy", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None, clOrdID=None):
+    def open_test_position(self, side="Buy", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
         """
         Open a trading position with optional Take Profit and Stop Loss orders.
 
@@ -214,7 +214,8 @@ class BitMEXTestAPI:
                 "side": normalized_side,
                 "orderQty": abs(int(quantity)) if abs(int(quantity)) < 20 else 5,
                 "ordType": order_type, 
-                "clOrdID": clOrdID
+                "clOrdID": clOrdID, 
+                "text" : text
             }
             if order_type == "Limit":
                 if price is None:
@@ -269,7 +270,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error opening position: {str(e)}")
             return None
 
-    def close_position(self, order_id):
+    def close_position(self, orderID, side="Sell", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
         """
         Close a specific position by order ID.
 
@@ -288,10 +289,11 @@ class BitMEXTestAPI:
                     order = self.client.Order.Order_new(
                         symbol=self.symbol,
                         side=side,
-                        orderQty=qty,
+                        orderQty=quantity,
                         ordType="Market",
                         execInst='Close', 
-                        clOrdID=order_id
+                        clOrdID=clOrdID, 
+                        text=text
                     ).result()[0]
             self.logger.info(f"✔️✔️Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
             return order
