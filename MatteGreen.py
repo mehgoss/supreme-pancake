@@ -128,7 +128,7 @@ class MatteGreen:
         self.trades = []
         self.equity_curve = [initial_capital]
         self.market_bias = 'neutral'
-        self.logger資訊(f"MatteGreen initialized for {symbol} on {timeframe}")
+        self.logger.info(f"MatteGreen initialized for {symbol} on {timeframe}")
 
     def get_market_data(self):
         try:
