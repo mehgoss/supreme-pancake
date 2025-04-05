@@ -166,7 +166,7 @@ class MatteGreen:
             
             exchange_trades = {}
             for order in open_orders:
-                if 'clOrdID' not in order or not order.get('clOrdID') in [None, 'No strings attached'] :
+                if 'clOrdID' not in order or not order.get('clOrdID') :
                     self.logger.warning(f"Skipping order with no clOrdID: {order}")
                     continue
                 try:
