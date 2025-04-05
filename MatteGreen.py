@@ -25,14 +25,14 @@ def get_sast_time():
 
 def clOrderID_string(clord_id, text=None):
     # Parse clOrdID (short part)
-    parts = clord_id.split('---')
+    parts = clord_id.split(';')
     symbol = parts[0].strip('(').strip(')')
     date = parts[1].strip('(').strip(')')
     uid = parts[2].strip('(').strip(')')
     
     # Parse text (long part) if provided
     if text:
-        text_parts = text.split('---')
+        text_parts = text.split(';')
         status = text_parts[0].strip('(').strip(')')
         action = text_parts[1].strip("'").strip('(').strip(')').replace("'", '').strip()
         entry_data = text_parts[2].strip('(').strip(')').split(', ')
@@ -84,17 +84,17 @@ def update_clOrderID_string(clord_id, text=None, **updates):
             temp[key] = value
     
     # Construct new clOrdID (ensure <= 36 chars)
-    new_clord_id = f"({temp['symbol']})---({temp['date']})---({temp['uuid']})"
+    new_clord_id = f"({temp['symbol']});({temp['date']});({temp['uuid']})"
     if len(new_clord_id) > 36:
-        # Truncate symbol or UUID if necessary
+        # Truncate UUID if necessary
         excess = len(new_clord_id) - 36
-        temp['uuid'] = temp['uuid'][:8 - excess]  # Shorten UUID
-        new_clord_id = f"({temp['symbol']})---({temp['date']})---({temp['uuid']})"
+        temp['uuid'] = temp['uuid'][:8 - excess]
+        new_clord_id = f"({temp['symbol']});({temp['date']});({temp['uuid']})"
         if len(new_clord_id) > 36:
             raise ValueError(f"clOrdID still exceeds 36 characters after truncation: {new_clord_id}")
 
     # Construct text field
-    new_text = f"({temp['status']})---({temp['action']})---({temp['price']}, {temp['position_size']}, {temp['side']}, {temp['entry_idx']})---({temp['take_profit']}, {temp['stop_loss']})"
+    new_text = f"({temp['status']});({temp['action']});({temp['price']}, {temp['position_size']}, {temp['side']}, {temp['entry_idx']});({temp['take_profit']}, {temp['stop_loss']})"
     
     return new_clord_id, new_text
 
@@ -317,8 +317,8 @@ class MatteGreen:
 
         date_str = sast_now.strftime("%Y%m%d%H%M%S")
         uid = str(uuid.uuid4())[:8]
-        clord_id = f"({self.symbol})---({date_str})---({uid})"  # 31 chars for SOL-USD
-        text = f"('open')---('entry')---({price}, {position_size}, {side}, {entry_idx})---({take_profit}, {stop_loss})"
+        clord_id = f"({self.symbol});({date_str});({uid})"  # 27 chars for SOL-USD
+        text = f"('open');('entry');({price}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
 
         # Log the exact values being sent
         self.logger.info(f"Opening position with clOrdID: '{clord_id}' (length: {len(clord_id)}), text: '{text}'")
