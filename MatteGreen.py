@@ -165,7 +165,7 @@ class MatteGreen:
             exchange_trades = {}
             for order in open_orders:
                 clord_id = order.get('clOrdID')
-                if not clord_id:
+                if not clord_id or clord_id == 'No strings attached':
                     self.logger.debug(f"Skipping order with no clOrdID: {order['clOrdID']}")
                     continue
                 text = order.get('text', '')
@@ -381,7 +381,7 @@ class MatteGreen:
                             raise ValueError(f"clOrdID exceeds 36 characters: {new_clord_id}")
                         self.api.close_position(side=side, quantity=size, order_type="Market", 
                                                 take_profit_price=take_profit, stop_loss_price=stop_loss, 
-                                                clOrdID=new_clord_id, text=new_text)
+                                                clOrdID=new_clord_id, text=new_text, orderID=new_clord_id) 
                         self.logger.info(f"Closed position via API: {new_clord_id}")
                     else:
                         new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
