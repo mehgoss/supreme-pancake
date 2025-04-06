@@ -240,7 +240,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error opening position: {str(e)}")
             return None
 
-    def close_position(self, orderID, side="Sell", quantity=100, order_type="Market", price=None, execInst="Close", take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
+    def close_position(self, side="Sell", quantity=100, order_type="Market", price=None, execInst="Close", take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
         """
         Close a specific position by order ID.
 
