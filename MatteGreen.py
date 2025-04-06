@@ -166,7 +166,7 @@ class MatteGreen:
             for order in open_orders:
                 clord_id = order.get('clOrdID')
                 if not clord_id or clord_id == 'No strings attached':
-                    self.logger.debug(f"Skipping order with no clOrdID: {order['clOrdID]}")
+                    self.logger.debug(f"Skipping order with no clOrdID: {order['clOrdID']}")
                     continue
                 text = order.get('text', '')
                 self.logger.debug(f"Processing order: clOrdID='{clord_id}', text='{text}'")
