@@ -158,7 +158,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error retrieving candle data: {str(e)}")
             return None
 
-    def open_test_position(self, side="Buy", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
+    def open_position(self, side="Buy", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
         """
         Open a trading position with optional Take Profit and Stop Loss orders.
 
@@ -234,43 +234,13 @@ class BitMEXTestAPI:
                 return None
 
             time.sleep(1)  # Wait for entry to settle
-
-            # Place Take Profit (MarketIfTouched)
-            if take_profit_price is None:
-                tp_params = {
-                    "symbol": self.symbol,
-                    "side": opposite_side,
-                    "orderQty": abs(int(quantity)),
-                    "stopPx": abs(int(take_profit_price)),
-                    "ordType": "MarketIfTouched",
-                    "execInst": "Close",
-                    "text": "Take Profit"
-                }
-                orders["take_profit"] = self.client.Order.Order_new(**tp_params).result()[0]
-                self.logger.info(f"Take Profit order placed: {orders['take_profit']['orderID']} at {take_profit_price}")
-
-            # Place Stop Loss (Stop)
-            if stop_loss_price is None:
-                sl_params = {
-                    "symbol": self.symbol,
-                    "side": opposite_side,
-                    "orderQty": abs(int(quantity)),
-                    "stopPx": abs(int(stop_loss_price)),
-                    "ordType": "Stop",
-                    "execInst": "Close",
-                    "text": "Stop Loss"
-                }
-                orders["stop_loss"] = self.client.Order.Order_new(**sl_params).result()[0]
-                self.logger.info(f"Stop Loss order placed: {orders['stop_loss']['orderID']} at {stop_loss_price}")
-
-            time.sleep(1)
             self.get_profile_info()
             return orders
         except Exception as e:
             self.logger.error(f"Error opening position: {str(e)}")
             return None
 
-    def close_position(self, orderID, side="Sell", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
+    def close_position(self, orderID, side="Sell", quantity=100, order_type="Market", price=None, execInst="Close", take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
         """
         Close a specific position by order ID.
 
@@ -279,22 +249,25 @@ class BitMEXTestAPI:
         """
         try:
             #order = self.client.Order.Order_cancel(orderID=order_id).result()[0]
-            positions = self.client.Position.Position_get(
-                filter=json.dumps({"symbol": self.symbol})
-            ).result()[0]
-            for pos in positions:
-                if pos['current_qty'] != 0:
-                    side = "Sell" if pos['current_qty'] > 0 else "Buy"
-                    qty = abs(pos['current_qty'])
-                    order = self.client.Order.Order_new(
+            #positions = self.client.Position.Position_get(
+            #    filter=json.dumps({"symbol": self.symbol})
+            #).result()[0]
+            if side == 'Sell' and quantity > 0:
+                quantity *= -1
+            order = self.client.Order.Order_new(
                         symbol=self.symbol,
                         side=side,
                         orderQty=quantity,
-                        ordType="Market",
-                        execInst='Close', 
+                        ordType=order_type,
+                        execInst=execInst, 
                         clOrdID=clOrdID, 
                         text=text
                     ).result()[0]
+            #for pos in positions:
+                #if pos['current_qty'] != 0:
+                    #side = "Sell" if pos['current_qty'] > 0 else "Buy"
+                    #qty = abs(pos['current_qty'])
+                    
             self.logger.info(f"✔️✔️Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
             return order
             #self.logger.info(f"No open position found for {self.symbol}")
@@ -303,7 +276,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error closing position: {str(e)}")
             return None
 
-    def close_all_positions(self):
+    def close_all_positions(self, clOrdID=None,text=None):
         """
         Close all open positions for the current symbol.
 
@@ -327,7 +300,9 @@ class BitMEXTestAPI:
                         side=side,
                         orderQty=qty,
                         ordType="Market", 
-                        execInst='Close'
+                        execInst='Close',
+                        clOrdID=clOrdID,
+                        text=text
                     ).result()[0]
             self.logger.info(f"✔️✔️Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
 
