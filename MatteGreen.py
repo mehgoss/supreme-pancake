@@ -25,6 +25,10 @@ def get_sast_time():
 
 def clOrderID_string(clord_id, text=None):
     try:
+        if clord_id is None:
+            raise ValueError("clOrdID cannot be None")
+        if not isinstance(clord_id, str):
+            raise ValueError(f"clOrdID must be a string, got {type(clord_id)}")
         parts = clord_id.split(';')
         if len(parts) < 3:
             raise IndexError(f"clOrdID has fewer than 3 parts: {clord_id}")
@@ -32,7 +36,9 @@ def clOrderID_string(clord_id, text=None):
         date = parts[1].strip('(').strip(')')
         uid = parts[2].strip('(').strip(')')
         
-        if text:
+        if text is not None:
+            if not isinstance(text, str):
+                raise ValueError(f"text must be a string or None, got {type(text)}")
             text_parts = text.split(';')
             if len(text_parts) < 4:
                 raise IndexError(f"text has fewer than 4 parts: {text}")
@@ -69,7 +75,7 @@ def clOrderID_string(clord_id, text=None):
             'uuid': uid
         }
     except Exception as e:
-        raise IndexError(f"Failed to parse clOrdID '{clord_id}' or text '{text}': {str(e)}")
+        raise ValueError(f"Failed to parse clOrdID '{clord_id}' or text '{text}': {str(e)}")
 
 def update_clOrderID_string(clord_id, text=None, **updates):
     clOrderID_dict = clOrderID_string(clord_id, text)
@@ -162,11 +168,14 @@ class MatteGreen:
             positions = self.api.get_positions() or []
             self.logger.info(f"🔁Syncing: Found {len(open_orders)} open orders and {len(positions)} positions.")
             
+            position_map = {pos['symbol']: pos for pos in positions if pos.get('currentQty', 0) != 0}
+            has_position = position_map.get(self.symbol.replace('-', ''), {}).get('currentQty', 0) != 0
+            
             exchange_trades = {}
             for order in open_orders:
                 clord_id = order.get('clOrdID')
-                if not clord_id or clord_id == 'No strings attached' or cl_ord_id == None:
-                    self.logger.debug(f"Skipping order with no clOrdID: {order['clOrdID']}")
+                if not clord_id:
+                    self.logger.debug(f"Skipping order with no clOrdID: {order}")
                     continue
                 text = order.get('text', '')
                 self.logger.debug(f"Processing order: clOrdID='{clord_id}', text='{text}'")
@@ -187,10 +196,7 @@ class MatteGreen:
                         text
                     )
                     self.logger.info(f"Successfully parsed order: clOrdID={clord_id}, side={clOrderID['side']}, price={clOrderID['price']}")
-                except IndexError as e:
-                    self.logger.warning(f"Invalid clOrdID format or data: {clord_id} - {str(e)}")
-                    continue
-                except (ValueError, AttributeError) as e:
+                except ValueError as e:
                     self.logger.warning(f"Invalid clOrdID format or data: {clord_id} - {str(e)}")
                     continue
             
@@ -199,8 +205,8 @@ class MatteGreen:
 
             for trade in list(self.current_trades):
                 clord_id = trade[7]
-                if clord_id and clord_id not in exchange_clord_ids:
-                    self.logger.info(f"Trade {clord_id} not found in open orders, marking as closed.")
+                if clord_id and clord_id not in exchange_clord_ids and not has_position:
+                    self.logger.info(f"Trade {clord_id} not found in open orders and no position exists, marking as closed.")
                     trade_id, entry_idx, entry_price, direction, stop_loss, take_profit, size, _, text = trade
                     exit_price = stop_loss if direction == 'long' and self.df['low'].iloc[-1] <= stop_loss else take_profit
                     pl = (exit_price - entry_price) * size if direction == 'long' else (entry_price - exit_price) * size
@@ -346,7 +352,7 @@ class MatteGreen:
         pos_quantity = max(2, int(position_size))
 
         try:
-            orders = self.api.open_position(side=pos_side, quantity=pos_quantity, order_type="Market",
+            orders = self.api.open_test_position(side=pos_side, quantity=pos_quantity, order_type="Market",
                                                  take_profit_price=take_profit, stop_loss_price=stop_loss, 
                                                  clOrdID=clord_id, text=text)
             if orders and orders.get('entry'):
@@ -372,11 +378,38 @@ class MatteGreen:
             stored_trade_id, idx, entry_price, trade_direction, stop_loss, take_profit, size, clord_id, text = trade
             if idx == entry_idx and trade_direction == direction:
                 try:
+                    positions = self.api.get_positions() or []
+                    position_qty = next((pos['currentQty'] for pos in positions if pos['symbol'] == self.symbol.replace('-', '')), 0)
+                    if position_qty == 0:
+                        self.logger.info(f"No position to close for clOrdID {clord_id}, already closed on exchange.")
+                        pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                        self.current_balance += pl
+                        self.equity_curve.append(self.current_balance)
+                        self.trades.append({
+                            'entry_idx': entry_idx, 'exit_idx': len(self.df) - 1, 'entry_price': entry_price,
+                            'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
+                            'trade_id': trade_id, 'clord_id': clord_id
+                        })
+                        self.current_trades.remove(trade)
+                        continue
+
                     if trade_id and trade_id == stored_trade_id:
-                        new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed',action='exit')
+                        if clord_id is None or text is None:
+                            self.logger.warning(f"Invalid clOrdID ({clord_id}) or text ({text}) for trade {trade_id}, skipping API close.")
+                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                            self.current_balance += pl
+                            self.equity_curve.append(self.current_balance)
+                            self.trades.append({
+                                'entry_idx': entry_idx, 'exit_idx': len(self.df) - 1, 'entry_price': entry_price,
+                                'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
+                                'trade_id': trade_id, 'clord_id': clord_id
+                            })
+                            self.current_trades.remove(trade)
+                            continue
+                        new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
                         side = 'Sell' if trade_direction == 'long' else 'Buy'
                         self.logger.info(f"Closing position with clOrdID: '{new_clord_id}' (length: {len(new_clord_id)}), text: '{new_text}'")
-                        if len(new_clord_id) > 36 and len(self.api.get_profile_info()['positions']) > 0:
+                        if len(new_clord_id) > 36:
                             self.logger.error(f"clOrdID exceeds 36 characters: {new_clord_id}")
                             raise ValueError(f"clOrdID exceeds 36 characters: {new_clord_id}")
                         self.api.close_position(side=side, quantity=size, order_type="Market", 
@@ -384,9 +417,21 @@ class MatteGreen:
                                                 clOrdID=new_clord_id, text=new_text)
                         self.logger.info(f"Closed position via API: {new_clord_id}")
                     else:
+                        if clord_id is None:
+                            self.logger.warning(f"No valid clOrdID for trade, skipping manual close.")
+                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                            self.current_balance += pl
+                            self.equity_curve.append(self.current_balance)
+                            self.trades.append({
+                                'entry_idx': entry_idx, 'exit_idx': len(self.df) - 1, 'entry_price': entry_price,
+                                'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
+                                'trade_id': trade_id, 'clord_id': clord_id
+                            })
+                            self.current_trades.remove(trade)
+                            continue
                         new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
                         self.logger.warning(f"No valid trade_id, closing manually with clOrdID: {new_clord_id}")
-                        self.api.close_all_positions(clOrderID=new_clord_id, text=new_text)
+                        self.api.close_all_positions(clOrderID=new_clord_id)
 
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
@@ -396,21 +441,24 @@ class MatteGreen:
                         'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                         'trade_id': trade_id, 'clord_id': new_clord_id
                     })
-                    #self.current_trades.remove(trade)
+                    self.current_trades.remove(trade)
                     self.logger.info(f"Closed {direction} at {price}, Reason: {reason}, PnL: {pl}, clOrdID: {new_clord_id}")
                 except Exception as e:
                     self.logger.error(f"Failed to close position {clord_id}: {str(e)}")
-                    new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
-                    self.api.close_all_positions(clOrderID=new_clord_id,text=new_text)
+                    if clord_id is None:
+                        self.logger.warning(f"No valid clOrdID for failed trade, removing locally.")
+                    else:
+                        new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
+                        self.api.close_all_positions(clOrderID=new_clord_id)
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
                     self.equity_curve.append(self.current_balance)
                     self.trades.append({
                         'entry_idx': entry_idx, 'exit_idx': len(self.df) - 1, 'entry_price': entry_price,
                         'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
-                        'trade_id': trade_id, 'clord_id': new_clord_id
+                        'trade_id': trade_id, 'clord_id': clord_id if clord_id is None else new_clord_id
                     })
-                    #self.current_trades.remove(trade)
+                    self.current_trades.remove(trade)
                 break
 
     def visualize_results(self, start_idx=0, end_idx=None):
@@ -478,29 +526,32 @@ class MatteGreen:
                 time.sleep(scan_interval)
                 iteration += 1
                 continue
-            self.sync_open_orders()
-            self.identify_swing_points()
-            self.detect_market_structure()
-            signals = self.execute_trades()
+            try:
+                self.sync_open_orders()
+                self.identify_swing_points()
+                self.detect_market_structure()
+                signals = self.execute_trades()
 
-            for signal in signals:
-                if signal['action'] == 'exit':
-                    self.execute_exit(signal)
-                elif signal['action'] == 'entry':
-                    self.execute_entry(signal)
-                    signal_found = True
+                for signal in signals:
+                    if signal['action'] == 'exit':
+                        self.execute_exit(signal)
+                    elif signal['action'] == 'entry':
+                        self.execute_entry(signal)
+                        signal_found = True
                 
-            wallet_history = self.api.get_transactions() 
-            positions = self.api.get_positions()
-            performance = get_trading_performance_summary(wallet_history, positions) 
-            self.logger.info(f"Performance: \nOverview: {performance['overview']} \n\nProfits: {performance['profit_metrics']}\n\nMetadata: {performance['metadata']}")
+                wallet_history = self.api.get_transactions() 
+                positions = self.api.get_positions()
+                performance = get_trading_performance_summary(wallet_history, positions) 
+                self.logger.info(f"Performance: \nOverview: {performance['overview']} \n\nProfits: {performance['profit_metrics']}\n\nMetadata: {performance['metadata']}")
 
-            if self.bot:
-                fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
-                caption = (f"📸Scan {iteration+1}\nTimestamp: {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                           f"Symbol: {self.symbol}\nSignal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice @ ${self.df['close'][-1]}")
-                self.bot.send_photo(fig=fig, caption=caption)
-            self.logger.info(f"({self.symbol}) Price @ ${self.df['close'][-1]} \n\n 😪😪😪 Sleeping for {scan_interval/60} minutes....") 
+                if self.bot:
+                    fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
+                    caption = (f"📸Scan {iteration+1}\nTimestamp: {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                               f"Symbol: {self.symbol}\nSignal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice @ ${self.df['close'][-1]}")
+                    self.bot.send_photo(fig=fig, caption=caption)
+                self.logger.info(f"({self.symbol}) Price @ ${self.df['close'][-1]} \n\n 😪😪😪 Sleeping for {scan_interval/60} minutes....") 
+            except Exception as e:
+                self.logger.error(f"An error occurred during trading: {str(e)}")
             time.sleep(scan_interval)
             iteration += 1
 
