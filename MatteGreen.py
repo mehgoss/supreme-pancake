@@ -174,7 +174,7 @@ class MatteGreen:
             exchange_trades = {}
             for order in open_orders:
                 clord_id = order.get('clOrdID')
-                if not clord_id:
+                if not clord_id or clord_id == 'No strings attached' or clord_id == None:
                     self.logger.debug(f"Skipping order with no clOrdID: {order}")
                     continue
                 text = order.get('text', '')
