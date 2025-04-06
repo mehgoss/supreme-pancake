@@ -390,7 +390,7 @@ class MatteGreen:
                             'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                             'trade_id': trade_id, 'clord_id': clord_id
                         })
-                        self.current_trades.remove(trade)
+                        #self.current_trades.remove(trade)
                         continue
 
                     if trade_id and trade_id == stored_trade_id:
@@ -441,7 +441,7 @@ class MatteGreen:
                         'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                         'trade_id': trade_id, 'clord_id': new_clord_id
                     })
-                    self.current_trades.remove(trade)
+                    #self.current_trades.remove(trade)
                     self.logger.info(f"Closed {direction} at {price}, Reason: {reason}, PnL: {pl}, clOrdID: {new_clord_id}")
                 except Exception as e:
                     self.logger.error(f"Failed to close position {clord_id}: {str(e)}")
@@ -458,7 +458,7 @@ class MatteGreen:
                         'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                         'trade_id': trade_id, 'clord_id': clord_id if clord_id is None else new_clord_id
                     })
-                    self.current_trades.remove(trade)
+                    #self.current_trades.remove(trade)
                 break
 
     def visualize_results(self, start_idx=0, end_idx=None):
