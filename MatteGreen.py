@@ -352,7 +352,7 @@ class MatteGreen:
         pos_quantity = max(2, int(position_size))
 
         try:
-            orders = self.api.open_test_position(side=pos_side, quantity=pos_quantity, order_type="Market",
+            orders = self.api.open_position(side=pos_side, quantity=pos_quantity, order_type="Market",
                                                  take_profit_price=take_profit, stop_loss_price=stop_loss, 
                                                  clOrdID=clord_id, text=text)
             if orders and orders.get('entry'):
