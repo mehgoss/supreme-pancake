@@ -253,7 +253,8 @@ class BitMEXTestAPI:
             #    filter=json.dumps({"symbol": self.symbol})
             #).result()[0]
             if side == 'Sell' and quantity > 0:
-                quantity *= -1
+                #Pass 
+                pass 
             order = self.client.Order.Order_new(
                         symbol=self.symbol,
                         side=side,
