@@ -374,7 +374,7 @@ class MatteGreen:
                 try:
                     if trade_id and trade_id == stored_trade_id:
                         new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed',action='exit')
-                        side = 'Buy' if trade_direction == 'long' else 'Sell'
+                        side = 'Sell' if trade_direction == 'long' else 'Buy'
                         self.logger.info(f"Closing position with clOrdID: '{new_clord_id}' (length: {len(new_clord_id)}), text: '{new_text}'")
                         if len(new_clord_id) > 36:
                             self.logger.error(f"clOrdID exceeds 36 characters: {new_clord_id}")
