@@ -187,7 +187,8 @@ class MatteGreen:
                         self.logger.debug(f"Skipping order for different symbol: {clOrderID['symbol']} vs {self.symbol}")
                         continue
                     if has_position and clOrderID['side'] != position_direction:
-                        self.logger.warning(f"Direction mismatch: clOrdID {clord_id} has side {clOrderID['side']}, but position is {position_direction}")
+                        pass
+                        #self.logger.warning(f"Direction mismatch: clOrdID {clord_id} has side {clOrderID['side']}, but position is {position_direction}")
                     exchange_trades[clord_id] = (
                         order.get('orderID', clord_id),
                         int(clOrderID['entry_idx']),
