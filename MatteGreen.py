@@ -199,7 +199,7 @@ class MatteGreen:
                         clord_id,
                         text
                     )
-                    self.logger.info(f"Successfully parsed order: clOrdID={clord_id}, side={clOrderID['side']}, price={clOrderID['price']}")
+                    #self.logger.info(f"Successfully parsed order: clOrdID={clord_id}, side={clOrderID['side']}, price={clOrderID['price']}")
                 except ValueError as e:
                     self.logger.warning(f"Invalid clOrdID format or data: {clord_id} - {str(e)}")
                     continue
