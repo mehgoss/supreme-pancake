@@ -166,7 +166,7 @@ class MatteGreen:
             for order in open_orders:
                 clord_id = order.get('clOrdID')
                 if not clord_id or clord_id == 'No strings attached':
-                    self.logger.debug(f"Skipping order with no clOrdID: {order['clOrdID']}")
+                    self.logger.debug(f"Skipping order with no clOrdID: {order['clOrdID}")
                     continue
                 text = order.get('text', '')
                 self.logger.debug(f"Processing order: clOrdID='{clord_id}', text='{text}'")
@@ -346,7 +346,7 @@ class MatteGreen:
         pos_quantity = max(2, int(position_size))
 
         try:
-            orders = self.api.open_test_position(side=pos_side, quantity=pos_quantity, order_type="Market",
+            orders = self.api.open_position(side=pos_side, quantity=pos_quantity, order_type="Market",
                                                  take_profit_price=take_profit, stop_loss_price=stop_loss, 
                                                  clOrdID=clord_id, text=text)
             if orders and orders.get('entry'):
@@ -373,7 +373,7 @@ class MatteGreen:
             if idx == entry_idx and trade_direction == direction:
                 try:
                     if trade_id and trade_id == stored_trade_id:
-                        new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
+                        new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed',action='exit')
                         side = 'long' if trade_direction == 'long' else 'short'
                         self.logger.info(f"Closing position with clOrdID: '{new_clord_id}' (length: {len(new_clord_id)}), text: '{new_text}'")
                         if len(new_clord_id) > 36:
@@ -381,12 +381,12 @@ class MatteGreen:
                             raise ValueError(f"clOrdID exceeds 36 characters: {new_clord_id}")
                         self.api.close_position(side=side, quantity=size, order_type="Market", 
                                                 take_profit_price=take_profit, stop_loss_price=stop_loss, 
-                                                clOrdID=new_clord_id, text=new_text, orderID=new_clord_id) 
+                                                clOrdID=new_clord_id, text=new_text)
                         self.logger.info(f"Closed position via API: {new_clord_id}")
                     else:
                         new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
                         self.logger.warning(f"No valid trade_id, closing manually with clOrdID: {new_clord_id}")
-                        self.api.close_all_positions(clOrderID=new_clord_id)
+                        self.api.close_all_positions(clOrderID=new_clord_id, text=new_text)
 
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
@@ -396,12 +396,12 @@ class MatteGreen:
                         'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                         'trade_id': trade_id, 'clord_id': new_clord_id
                     })
-                    self.current_trades.remove(trade)
+                    #self.current_trades.remove(trade)
                     self.logger.info(f"Closed {direction} at {price}, Reason: {reason}, PnL: {pl}, clOrdID: {new_clord_id}")
                 except Exception as e:
                     self.logger.error(f"Failed to close position {clord_id}: {str(e)}")
                     new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
-                    self.api.close_all_positions(clOrderID=new_clord_id)
+                    self.api.close_all_positions(clOrderID=new_clord_id,text=new_text)
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
                     self.equity_curve.append(self.current_balance)
@@ -410,7 +410,7 @@ class MatteGreen:
                         'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                         'trade_id': trade_id, 'clord_id': new_clord_id
                     })
-                    self.current_trades.remove(trade)
+                    #self.current_trades.remove(trade)
                 break
 
     def visualize_results(self, start_idx=0, end_idx=None):
