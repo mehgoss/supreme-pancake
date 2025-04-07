@@ -330,7 +330,7 @@ class MatteGreen:
     
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
-                                    'take_profit': round(take_profit, 4), 'position_size': int(size) if  size < 1 else 0.002, 'entry_idx': current_idx})
+                                    'take_profit': round(take_profit, 4), 'position_size': max(1,size) , 'entry_idx': current_idx})
                     self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None))
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
     
@@ -358,7 +358,7 @@ class MatteGreen:
             raise ValueError(f"clOrdID exceeds 36 characters: {clord_id}")
 
         pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
-        pos_quantity = max(0.001, int(position_size))
+        pos_quantity = max(1, int(position_size))
         profile = self.api.get_profile_info()
         if not profile or 'balance' not in profile:
             self.logger.error("Failed to fetch profile info for margin check")
@@ -445,7 +445,7 @@ class MatteGreen:
                             raise ValueError(f"clOrdID exceeds 36 characters: {new_clord_id}")
                         self.api.close_position(side=side, quantity=size, order_type="Market", 
                                                 take_profit_price=take_profit, stop_loss_price=stop_loss, 
-                                                clOrdID=new_clord_id, text=new_text)
+                                                clOrdID=new_clord_id, text=new_text, execInst='ReduceOnly')
                         self.logger.info(f"Closed position via API: {new_clord_id}")
                     else:
                         if clord_id is None:
