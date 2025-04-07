@@ -384,6 +384,7 @@ class MatteGreen:
                 self.current_trades.append((None, entry_idx, price, side, stop_loss, take_profit, position_size, clord_id, text))
         except Exception as e:
             self.logger.error(f"Error opening position: {str(e)}")
+            continue 
             #raise
 
     def execute_exit(self, signal):
