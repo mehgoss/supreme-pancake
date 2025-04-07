@@ -325,7 +325,7 @@ class MatteGreen:
                             max(self.df['high'].iloc[lookback_start:current_idx+1]) - entry_price
                 stop_loss = entry_price - stop_dist * 0.25 if direction == 'long' else entry_price + stop_dist * 0.25
                 take_profit = entry_price + stop_dist * (self.rr_ratio * 0.5/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.5/2)
-                size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss
+                size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss) 
 		try:
 		    risk_of_new_trade = abs(entry_price - stop_loss) * size
 		except:
