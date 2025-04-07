@@ -33,7 +33,7 @@ class BitMEXTestAPI:
                 api_secret=api_secret
             )
             self.symbol = symbol.replace('-', '')  # Normalize to 'SOLUSD'
-            self.max_balance_usage = 0.50 # Max 30% of balance per position
+            self.max_balance_usage = 0.80 # Max 30% of balance per position
             network_type = 'testnet' if test else 'mainnet'
             self.logger.info(f"BitMEXTestAPI initialized for {self.symbol} on {network_type}")
         except Exception as e:
