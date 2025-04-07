@@ -328,8 +328,8 @@ class MatteGreen:
                 take_profit = entry_price + stop_dist * (self.rr_ratio * 0.5/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.5/2)
                 size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
                 #risk_of_new_trade = abs(entry_price - stop_loss) * size
-                risk_distance = abs(entry_price - stop_loss
-	            #risk_distance = abs(entry_price - stop_loss)
+                #risk_distance = abs(entry_price - stop_loss
+	        risk_distance = abs(entry_price - stop_loss)
                 if risk_distance == 0:
                     Self.logger.error("Stop loss and entry price cannot be the same.")
                     #raise ValueError("Stop loss and entry price cannot be the same.")
