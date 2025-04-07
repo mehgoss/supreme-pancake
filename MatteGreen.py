@@ -143,7 +143,7 @@ class MatteGreen:
 
     def get_market_data(self):
         try:
-            data = self.api.get_candle("5m", 200)
+            data = self.api.get_candle("5m", 100)
             #data = yf.download(tickers=self.symbol, interval=self.timeframe, period='2d') 
             data.columns = [col[0].lower() for col in data.columns] 
             if data is None or data.empty:
