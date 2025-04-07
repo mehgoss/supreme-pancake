@@ -145,7 +145,7 @@ class MatteGreen:
         try:
             data = self.api.get_candle("5m", 100)
             #data = yf.download(tickers=self.symbol, interval=self.timeframe, period='2d') 
-            data.columns = [col[0].lower() for col in data.columns] 
+            #data.columns = [col[0].lower() for col in data.columns] 
             if data is None or data.empty:
                 self.logger.error("No data from Yfinance API")
                 return False
