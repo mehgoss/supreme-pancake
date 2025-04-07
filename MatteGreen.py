@@ -211,7 +211,7 @@ class MatteGreen:
             for trade in list(self.current_trades):
                 clord_id = trade[7]
                 if clord_id and clord_id not in exchange_clord_ids and not has_position:
-                    self.logger.info(f"Trade {clord_id} not found in open orders and no position exists, marking as closed.")
+                    #self.logger.info(f"Trade {clord_id} not found in open orders and no position exists, marking as closed.")
                     trade_id, entry_idx, entry_price, direction, stop_loss, take_profit, size, _, text = trade
                     exit_price = stop_loss if direction == 'long' and self.df['low'].iloc[-1] <= stop_loss else take_profit
                     pl = (exit_price - entry_price) * size if direction == 'long' else (entry_price - exit_price) * size
@@ -231,7 +231,7 @@ class MatteGreen:
 
             for clord_id, trade_data in exchange_trades.items():
                 if clord_id not in local_clord_ids:
-                    self.logger.info(f"Adding missing trade from exchange: {clord_id}")
+                    #self.logger.info(f"Adding missing trade from exchange: {clord_id}")
                     self.current_trades.append(trade_data)
             
             self.logger.debug(f"Current trades after sync: {self.current_trades}")
@@ -391,7 +391,7 @@ class MatteGreen:
                     positions = self.api.get_positions() or []
                     position_qty = next((pos['currentQty'] for pos in positions if pos['symbol'] == self.symbol.replace('-', '')), 0)
                     if position_qty == 0:
-                        self.logger.info(f"No position to close for clOrdID {clord_id}, already closed on exchange.")
+                        #self.logger.info(f"No position to close for clOrdID {clord_id}, already closed on exchange.")
                         pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                         self.current_balance += pl
                         self.equity_curve.append(self.current_balance)
@@ -430,7 +430,7 @@ class MatteGreen:
                             })
                             self.current_trades.remove(trade)
                             continue
-                        self.logger.info(f"Closing position with clOrdID: '{new_clord_id}' (length: {len(new_clord_id)}), text: '{new_text}', side: {side}")
+                        #self.logger.info(f"Closing position with clOrdID: '{new_clord_id}' (length: {len(new_clord_id)}), text: '{new_text}', side: {side}")
                         if len(new_clord_id) > 36:
                             self.logger.error(f"clOrdID exceeds 36 characters: {new_clord_id}")
                             raise ValueError(f"clOrdID exceeds 36 characters: {new_clord_id}")
