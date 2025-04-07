@@ -199,7 +199,7 @@ class MatteGreen:
                         clord_id,
                         text
                     )
-                    self.logger.info(f"Successfully parsed order: clOrdID={clord_id}, side={clOrderID['side']}, price={clOrderID['price']}")
+                    #self.logger.info(f"Successfully parsed order: clOrdID={clord_id}, side={clOrderID['side']}, price={clOrderID['price']}")
                 except ValueError as e:
                     self.logger.warning(f"Invalid clOrdID format or data: {clord_id} - {str(e)}")
                     continue
@@ -210,7 +210,7 @@ class MatteGreen:
             for trade in list(self.current_trades):
                 clord_id = trade[7]
                 if clord_id and clord_id not in exchange_clord_ids and not has_position:
-                    self.logger.info(f"Trade {clord_id} not found in open orders and no position exists, marking as closed.")
+                    #self.logger.info(f"Trade {clord_id} not found in open orders and no position exists, marking as closed.")
                     trade_id, entry_idx, entry_price, direction, stop_loss, take_profit, size, _, text = trade
                     exit_price = stop_loss if direction == 'long' and self.df['low'].iloc[-1] <= stop_loss else take_profit
                     pl = (exit_price - entry_price) * size if direction == 'long' else (entry_price - exit_price) * size
