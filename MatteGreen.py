@@ -143,9 +143,8 @@ class MatteGreen:
 
     def get_market_data(self):
         try:
-            data = self.api.get_candle("5m", 100)
-            #data = yf.download(tickers=self.symbol, interval=self.timeframe, period='2d') 
-            #data.columns = [col[0].lower() for col in data.columns] 
+            data = yf.download(tickers=self.symbol, interval=self.timeframe, period='2d') 
+            data.columns = [col[0].lower() for col in data.columns] 
             if data is None or data.empty:
                 self.logger.error("No data from Yfinance API")
                 return False
@@ -326,14 +325,14 @@ class MatteGreen:
                             max(self.df['high'].iloc[lookback_start:current_idx+1]) - entry_price
                 stop_loss = entry_price - stop_dist * 0.25 if direction == 'long' else entry_price + stop_dist * 0.25
                 take_profit = entry_price + stop_dist * (self.rr_ratio * 0.5/2) if direction == 'long' else entry_price - stop_dist * (self.rr_ratio * 0.5/2)
-                size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
-                try:
+                size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss
+		try:
 		    risk_of_new_trade = abs(entry_price - stop_loss) * size
 		except:
 		    risk_of_new_trade = self.risk_per_trade
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
-                                    'take_profit': round(take_profit, 4), 'position_size': max(1,size) if size < 2 else 1, 'entry_idx': current_idx})
+                                    'take_profit': round(take_profit, 4), 'position_size': int(size) if  size < 1 else 0.002, 'entry_idx': current_idx})
                     self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None))
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
     
@@ -361,7 +360,7 @@ class MatteGreen:
             raise ValueError(f"clOrdID exceeds 36 characters: {clord_id}")
 
         pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
-        pos_quantity = max(1, int(position_size))
+        pos_quantity = max(.1, int(position_size))
         profile = self.api.get_profile_info()
         if not profile or 'balance' not in profile:
             self.logger.error("Failed to fetch profile info for margin check")
@@ -386,8 +385,7 @@ class MatteGreen:
                 self.current_trades.append((None, entry_idx, price, side, stop_loss, take_profit, position_size, clord_id, text))
         except Exception as e:
             self.logger.error(f"Error opening position: {str(e)}")
-            pass 
-            #raise
+            raise
 
     def execute_exit(self, signal):
         reason = signal['reason']
@@ -449,7 +447,7 @@ class MatteGreen:
                             raise ValueError(f"clOrdID exceeds 36 characters: {new_clord_id}")
                         self.api.close_position(side=side, quantity=size, order_type="Market", 
                                                 take_profit_price=take_profit, stop_loss_price=stop_loss, 
-                                                clOrdID=new_clord_id, text=new_text, execInst='ReduceOnly')
+                                                clOrdID=new_clord_id, text=new_text)
                         self.logger.info(f"Closed position via API: {new_clord_id}")
                     else:
                         if clord_id is None:
@@ -577,7 +575,7 @@ class MatteGreen:
                 wallet_history = self.api.get_transactions() 
                 positions = self.api.get_positions()
                 performance = get_trading_performance_summary(wallet_history, positions) 
-                #self.logger.info(f"Performance: \nOverview: {performance['overview']} \n\nProfits: {performance['profit_metrics']}\n\nMetadata: {performance['metadata']}")
+                self.logger.info(f"Performance: \nOverview: {performance['overview']} \n\nProfits: {performance['profit_metrics']}\n\nMetadata: {performance['metadata']}")
 
                 if self.bot and iteration % 2 != 0:
                     fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
