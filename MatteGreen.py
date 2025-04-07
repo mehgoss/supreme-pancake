@@ -330,7 +330,7 @@ class MatteGreen:
     
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
-                                    'take_profit': round(take_profit, 4), 'position_size': int(size), 'entry_idx': current_idx})
+                                    'take_profit': round(take_profit, 4), 'position_size': int(size) if  size < 2 else 0.2, 'entry_idx': current_idx})
                     self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None))
                     self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
     
