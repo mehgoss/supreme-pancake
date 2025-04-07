@@ -304,7 +304,7 @@ class MatteGreen:
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.execute_exit({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
-                self.logger.info(f"🔴❗Exit: {direction} stopped out at {stop_loss}")
+                #self.logger.info(f"🔴❗Exit: {direction} stopped out at {stop_loss}")
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
                  (direction == 'short' and self.df['low'].iloc[current_idx] <= take_profit):
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
@@ -314,7 +314,7 @@ class MatteGreen:
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.execute_exit({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
-                self.logger.info(f"Exit: {direction} took profit at {take_profit}📈🎉🎉🔵🔵")
+                #self.logger.info(f"Exit: {direction} took profit at {take_profit}📈🎉🎉🔵🔵")
     
         if len(self.current_trades) < 3 and current_idx >= self.lookback_period:
             direction = 'long' if self.market_bias == 'bullish' else 'short' if self.market_bias == 'bearish' else None
@@ -365,11 +365,11 @@ class MatteGreen:
             return
     
         available_margin = profile['balance']['bitmex_usd']  # Adjust based on actual API response structure
-        required_margin = (position_size * price) / self.api.leverage  # Assuming leverage is accessible
+        required_margin = (position_size * price) / 5 # Assuming leverage is accessible
     
-        if required_margin > available_margin:
-            self.logger.error(f"Insufficient margin: Required ${required_margin:.2f}, Available ${available_margin:.2f}")
-            return
+        #if required_margin > available_margin:
+            #self.logger.error(f"Insufficient margin: Required ${required_margin:.2f}, Available ${available_margin:.2f}")
+            #return
         try:
             orders = self.api.open_position(side=pos_side, quantity=pos_quantity, order_type="Market",
                                                  take_profit_price=take_profit, stop_loss_price=stop_loss, 
