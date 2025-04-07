@@ -358,7 +358,7 @@ class MatteGreen:
             raise ValueError(f"clOrdID exceeds 36 characters: {clord_id}")
 
         pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
-        pos_quantity = max(.1, int(position_size))
+        pos_quantity = max(1, int(position_size))
         profile = self.api.get_profile_info()
         if not profile or 'balance' not in profile:
             self.logger.error("Failed to fetch profile info for margin check")
