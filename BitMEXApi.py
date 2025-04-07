@@ -277,7 +277,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error closing position: {str(e)}")
             return None
 
-    def close_all_positions(self, clOrdID=None,text=None):
+    def close_all_positions(self, clOrderID=None, text=None):
         """
         Close all open positions for the current symbol.
 
