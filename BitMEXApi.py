@@ -211,6 +211,7 @@ class BitMEXTestAPI:
             # Prepare entry order
             order_params = {
                 "symbol": self.symbol,
+                "price": int(price), 
                 "side": normalized_side,
                 "orderQty": quantity, 
                 "ordType": order_type, 
@@ -302,7 +303,7 @@ class BitMEXTestAPI:
                         orderQty=qty,
                         ordType="Market", 
                         execInst='Close',
-                        clOrdID=clOrdID,
+                        clOrdID=clOrderID,
                         text=text
                     ).result()[0]
             self.logger.info(f"✔️✔️Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
@@ -312,6 +313,29 @@ class BitMEXTestAPI:
             return True
         except Exception as e:
             self.logger.error(f"Error closing all positions: {str(e)}")
+            return None
+
+    def set_leverage(self, leverage):
+        """
+        Set leverage for the specified symbol using Position_updateLeverage.
+
+        :param leverage: Leverage value (0.01 to 100 for isolated margin, 0 for cross margin)
+        :return: Response from API or None if error
+        """
+        try:
+            if not 0 <= leverage <= 100:
+                raise ValueError("Leverage must be between 0 and 100")
+
+            response = self.client.Position.Position_updateLeverage(
+                symbol=self.symbol,
+                leverage=leverage
+            ).result()[0]
+
+            margin_type = "isolated" if leverage > 0 else "cross"
+            self.logger.info(f"Leverage set to {leverage}x ({margin_type} margin) for {self.symbol}")
+            return response
+        except Exception as e:
+            self.logger.error(f"Error setting leverage: {str(e)}")
             return None
 
     def run_test_sequence(self):
@@ -327,14 +351,17 @@ class BitMEXTestAPI:
             self.logger.info("=== INITIAL PROFILE ===")
             self.get_profile_info()
 
+            self.logger.info("=== SETTING LEVERAGE ===")
+            self.set_leverage(100)  # Set to 100x for 1:1 profit-to-move; change to 1 for 1:1 position-to-margin
+
             self.logger.info("=== OPENING LONG POSITION (BUY) ===")
-            self.open_test_position(side="Buy", quantity=1)
+            self.open_position(side="Buy", quantity=1)
 
             time.sleep(1)
             self.get_profile_info()
 
             self.logger.info("=== OPENING SHORT POSITION (SELL) ===")
-            self.open_test_position(side="Sell", quantity=1)
+            self.open_position(side="Sell", quantity=1)
 
             time.sleep(1)
             self.get_profile_info()
