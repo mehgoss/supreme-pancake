@@ -575,7 +575,7 @@ class MatteGreen:
                 wallet_history = self.api.get_transactions() 
                 positions = self.api.get_positions()
                 performance = get_trading_performance_summary(wallet_history, positions) 
-                self.logger.info(f"Performance: \nOverview: {performance['overview']} \n\nProfits: {performance['profit_metrics']}\n\nMetadata: {performance['metadata']}")
+                self.logger.info(f"Performance: \nOverview: {profile['user']} \n\nProfits: {profile['balance']}\n\nMetadata: {profile['positions']}")
 
                 if self.bot and iteration % 2 != 0:
                     fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
