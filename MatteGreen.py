@@ -546,7 +546,7 @@ class MatteGreen:
             self.equity_curve = [self.initial_balance]
             self.logger.info(f"Initial balance: ${self.initial_balance:.2f}")
         self.logger.info("=== SETTING LEVERAGE ===")
-        self.api.set_leverage(15)
+        #self.api.set_leverage(15)
         signal_found = False
         iteration = 0
         while (time.time() - start_time) < max_runtime_minutes * 60:
@@ -575,7 +575,7 @@ class MatteGreen:
                 wallet_history = self.api.get_transactions() 
                 positions = self.api.get_positions()
                 performance = get_trading_performance_summary(wallet_history, positions) 
-                self.logger.info(f"Performance: \nOverview: {profile['user']} \n\nProfits: {profile['balance']}\n\nMetadata: {profile['positions']}")
+                self.logger.info(f"Performance:\n\n\nOverview: \n{profile['user']} \n\nProfits: \n{profile['balance']}\n\nMetadata: \n{profile['positions']}")
 
                 if self.bot and iteration % 2 != 0:
                     fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
