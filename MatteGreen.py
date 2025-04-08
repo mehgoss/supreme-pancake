@@ -463,7 +463,7 @@ class MatteGreen:
                             continue
                         new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
                         self.logger.warning(f"No valid trade_id, closing manually with clOrdID: {new_clord_id}")
-                        self.api.close_all_positions(clOrderID=new_clord_id)
+                        #self.api.close_all_positions(clOrderID=new_clord_id)
 
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
