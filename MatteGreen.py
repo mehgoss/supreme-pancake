@@ -572,10 +572,16 @@ class MatteGreen:
                         self.execute_entry(signal)
                         signal_found = True
                 
+                wallet_summary = self.api.get_wallet_summary() 
+                wallet_usd = self.api.get_stats_history_usd()
                 wallet_history = self.api.get_transactions() 
+
                 positions = self.api.get_positions()
                 performance = get_trading_performance_summary(wallet_history, positions) 
                 self.logger.info(f"Performance:\n\n\nOverview: \n{profile['user']} \n\nProfits: \n{profile['balance']}\n\nMetadata: \n{profile['positions']}")
+                self.logger.info(f"\nStats Usd:\n\n: \n{wallet_usd}") 
+                self.logger.info(f"\n\nWallet summary\n\n: \n{wallet_summary}") 
+                #self.logger.info(f"\n\nMetadata:\n\n{profile['positions']}")
 
                 if self.bot and iteration % 2 != 0:
                     fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
