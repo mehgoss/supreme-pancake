@@ -208,7 +208,7 @@ class BitMEXTestAPI:
 
     def open_position(self, side="Buy", quantity=100, order_type="Market", price=None, 
                      exec_inst=None, take_profit_price=None, stop_loss_price=None, 
-                     cl_ord_id=None, text=None):
+                     clOrdID=None, text=None):
         """
         Open a trading position with optional Take Profit and Stop Loss orders.
 
@@ -269,7 +269,7 @@ class BitMEXTestAPI:
                 "side": normalized_side,
                 "orderQty": quantity,
                 "ordType": order_type,
-                "clOrdID": cl_ord_id,
+                "clOrdID": clOrdID,
                 "text": text
             }
             if order_type == "Limit":
@@ -297,7 +297,7 @@ class BitMEXTestAPI:
 
     def close_position(self, side="Sell", quantity=100, order_type="Market", price=None, 
                       exec_inst="Close", take_profit_price=None, stop_loss_price=None, 
-                      cl_ord_id=None, text=None):
+                      clOrdID=None, text=None):
         """
         Close a position.
 
@@ -322,7 +322,7 @@ class BitMEXTestAPI:
                 orderQty=quantity,
                 ordType=order_type,
                 execInst=exec_inst,
-                clOrdID=cl_ord_id,
+                clOrdID=clOrdID,
                 text=text
             ).result()[0]
             
@@ -333,7 +333,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Error closing position: {str(e)}")
             return None
 
-    def close_all_positions(self, cl_ord_id=None, text=None):
+    def close_all_positions(self, clOrdID=None, text=None):
         """
         Close all open positions for the current symbol.
 
@@ -363,7 +363,7 @@ class BitMEXTestAPI:
                         orderQty=qty,
                         ordType="Market",
                         execInst='Close',
-                        clOrdID=cl_ord_id,
+                        clOrdID=clOrdID,
                         text=text
                     ).result()[0]
                     self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']} | "
