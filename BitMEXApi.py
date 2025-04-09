@@ -14,7 +14,7 @@ load_dotenv()
 class BitMEXTestAPI:
     """BitMEX API client for trading operations."""
     
-    def __init__(self, api_key, api_secret, test=True, symbol='SOL-USD', logger=None):
+    def __init__(self, api_key, api_secret, test=True, symbol='SOL-USD', Log=None):
         """
         Initialize BitMEX API client.
 
@@ -25,7 +25,7 @@ class BitMEXTestAPI:
             symbol (str): Trading symbol (default: 'SOL-USD')
             logger (logging.Logger): Custom logger instance (optional)
         """
-        self.logger = logger if logger else logging.getLogger(__name__)
+        self.logger = Log if Log else logging.getLogger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO)
 
