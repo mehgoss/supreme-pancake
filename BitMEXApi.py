@@ -12,17 +12,20 @@ import bitmex  # Requires 'bitmex' package: pip install bitmex
 load_dotenv()
 
 class BitMEXTestAPI:
-    def __init__(self, api_key, api_secret, test=True, symbol='SOL-USD', Log=None):
+    """BitMEX API client for trading operations."""
+    
+    def __init__(self, api_key, api_secret, test=True, symbol='SOL-USD', logger=None):
         """
         Initialize BitMEX API client.
 
-        :param api_key: BitMEX API key
-        :param api_secret: BitMEX API secret
-        :param test: Use testnet (default True)
-        :param symbol: Trading symbol (default SOL-USD)
-        :param Log: Logger instance (optional)
+        Args:
+            api_key (str): BitMEX API key
+            api_secret (str): BitMEX API secret
+            test (bool): Use testnet if True (default: True)
+            symbol (str): Trading symbol (default: 'SOL-USD')
+            logger (logging.Logger): Custom logger instance (optional)
         """
-        self.logger = Log if Log else logging.getLogger(__name__)
+        self.logger = logger if logger else logging.getLogger(__name__)
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO)
 
@@ -33,7 +36,7 @@ class BitMEXTestAPI:
                 api_secret=api_secret
             )
             self.symbol = symbol.replace('-', '')  # Normalize to 'SOLUSD'
-            self.max_balance_usage = 0.20 # Max 30% of balance per position
+            self.max_balance_usage = 0.20  # Max 20% of balance per position
             network_type = 'testnet' if test else 'mainnet'
             self.logger.info(f"BitMEXTestAPI initialized for {self.symbol} on {network_type}")
         except Exception as e:
@@ -44,7 +47,8 @@ class BitMEXTestAPI:
         """
         Retrieve account profile information including balance and positions.
 
-        :return: Dictionary with user, balance, and position details, or None if error
+        Returns:
+            dict: Profile information with user, balance, and position details, or None if error
         """
         try:
             user_info = self.client.User.User_get().result()[0]
@@ -104,25 +108,69 @@ class BitMEXTestAPI:
         except Exception as e:
             self.logger.error(f"Error getting profile information: {str(e)}")
             return None
+
     def get_open_orders(self):
-        """Set transactions data directly."""
-        open_orders = self.client.Order.Order_getOrders(filter=json.dumps({"symbol": "SOLUSD" })).result()[0]
-        return open_orders 
+        """
+        Retrieve open orders for the specified symbol.
+
+        Returns:
+            list: List of open orders
+        """
+        open_orders = self.client.Order.Order_getOrders(
+            filter=json.dumps({"symbol": self.symbol})
+        ).result()[0]
+        return open_orders
+
     def get_transactions(self):
-        """Set transactions data directly."""
+        """
+        Retrieve wallet transaction history.
+
+        Returns:
+            list: List of wallet transactions
+        """
         wallet_history = self.client.User.User_getWalletHistory().result()[0]
-        return wallet_history 
+        return wallet_history
+
+    def get_wallet_summary(self):
+        """
+        Retrieve wallet summary for the specified symbol.
+
+        Returns:
+            list: Wallet summary data
+        """
+        wallet_summary = self.client.User.User_getWalletSummary().result()[0]
+        return wallet_summary
+
+    def get_stats_history_usd(self):
+        """
+        Retrieve historical stats in USD.
+
+        Returns:
+            list: Historical statistics
+        """
+        stats_history = self.client.Stats.Stats_historyUSD().result()[0]
+        return stats_history
+
     def get_positions(self):
-        """Set transactions data directly."""
-        positions = self.client.Position.Position_get().result()[0]  # This would depend on the exact Bitmex API
-        return positions 
+        """
+        Retrieve all current positions.
+
+        Returns:
+            list: List of position data
+        """
+        positions = self.client.Position.Position_get().result()[0]
+        return positions
+
     def get_candle(self, timeframe='1m', count=100):
         """
         Retrieve candlestick (OHLCV) data for the specified symbol.
 
-        :param timeframe: Candle timeframe (e.g., '1m', '5m', '1h')
-        :param count: Number of candles to retrieve
-        :return: DataFrame with candle data or None if error
+        Args:
+            timeframe (str): Candle timeframe (e.g., '1m', '5m', '1h')
+            count (int): Number of candles to retrieve
+
+        Returns:
+            pd.DataFrame: Candle data or None if error
         """
         try:
             valid_timeframes = ['1m', '5m', '1h', '1d']
@@ -130,7 +178,7 @@ class BitMEXTestAPI:
                 raise ValueError(f"Invalid timeframe. Supported: {', '.join(valid_timeframes)}")
 
             candles = self.client.Trade.Trade_getBucketed(
-                symbol=self.symbol if '-' not in self.symbol else 'XBTUSD' ,
+                symbol=self.symbol,
                 binSize=timeframe,
                 count=count,
                 reverse=True
@@ -158,23 +206,29 @@ class BitMEXTestAPI:
             self.logger.error(f"Error retrieving candle data: {str(e)}")
             return None
 
-    def open_position(self, side="Buy", quantity=100, order_type="Market", price=None, execInst=None, take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
+    def open_position(self, side="Buy", quantity=100, order_type="Market", price=None, 
+                     exec_inst=None, take_profit_price=None, stop_loss_price=None, 
+                     cl_ord_id=None, text=None):
         """
         Open a trading position with optional Take Profit and Stop Loss orders.
 
-        :param side: 'Buy' or 'Sell'
-        :param quantity: Number of contracts
-        :param order_type: 'Market' or 'Limit'
-        :param price: Limit price (required for Limit orders)
-        :param execInst: Execution instructions (e.g., 'ParticipateDoNotInitiate')
-        :param take_profit_price: Price for Take Profit order
-        :param stop_loss_price: Price for Stop Loss order
-        :return: Dictionary with entry, TP, and SL order details, or None if error
+        Args:
+            side (str): 'Buy' or 'Sell'
+            quantity (int): Number of contracts
+            order_type (str): 'Market' or 'Limit'
+            price (float): Limit price (required for Limit orders)
+            exec_inst (str): Execution instructions
+            take_profit_price (float): Price for Take Profit order
+            stop_loss_price (float): Price for Stop Loss order
+            cl_ord_id (str): Client Order ID
+            text (str): Order text/note
+
+        Returns:
+            dict: Entry order details or None if error
         """
         try:
             self.logger.info(f"Attempting to open {side} position for {quantity} contracts on {self.symbol}")
             normalized_side = "Sell" if str(side).strip().lower() in ["short", "sell"] else "Buy"
-            opposite_side = "Buy" if normalized_side == "Sell" else "Sell"
 
             profile = self.get_profile_info()
             if not profile or not profile['balance']:
@@ -206,24 +260,24 @@ class BitMEXTestAPI:
                 elif available_balance_usd <= 0:
                     self.logger.warning("Zero or negative balance")
                     return None
-            if clOrdID == None :
-                clOrdID = 'No strings attached' 
+
+            cl_ord_id = cl_ord_id or 'No strings attached'
+            
             # Prepare entry order
             order_params = {
                 "symbol": self.symbol,
-                "price": int(price), 
                 "side": normalized_side,
-                "orderQty": quantity, 
-                "ordType": order_type, 
-                "clOrdID": clOrdID, 
-                "text" : text
+                "orderQty": quantity,
+                "ordType": order_type,
+                "clOrdID": cl_ord_id,
+                "text": text
             }
             if order_type == "Limit":
                 if price is None:
                     raise ValueError("Price required for Limit order")
                 order_params["price"] = price
-            if execInst:
-                order_params["execInst"] = execInst
+            if exec_inst:
+                order_params["execInst"] = exec_inst
 
             orders = {"entry": None, "take_profit": None, "stop_loss": None}
             position_qty = sum(pos['current_qty'] for pos in profile['positions'] if pos['symbol'] == self.symbol)
@@ -234,65 +288,71 @@ class BitMEXTestAPI:
                 self.logger.warning(f"Total position quantity {position_qty} >= 20. Skipping order")
                 return None
 
-            time.sleep(1)  # Wait for entry to settle
+            time.sleep(1)
             self.get_profile_info()
             return orders
         except Exception as e:
             self.logger.error(f"Error opening position: {str(e)}")
             return None
 
-    def close_position(self, side="Sell", quantity=100, order_type="Market", price=None, execInst="Close", take_profit_price=None, stop_loss_price=None, clOrdID=None, text=None):
+    def close_position(self, side="Sell", quantity=100, order_type="Market", price=None, 
+                      exec_inst="Close", take_profit_price=None, stop_loss_price=None, 
+                      cl_ord_id=None, text=None):
         """
-        Close a specific position by order ID.
+        Close a position.
 
-        :param order_id: Order ID to close
-        :return: Order result or None if error
+        Args:
+            side (str): 'Buy' or 'Sell'
+            quantity (int): Number of contracts
+            order_type (str): 'Market' or 'Limit'
+            price (float): Limit price
+            exec_inst (str): Execution instructions
+            take_profit_price (float): Take Profit price
+            stop_loss_price (float): Stop Loss price
+            cl_ord_id (str): Client Order ID
+            text (str): Order text/note
+
+        Returns:
+            dict: Order result or None if error
         """
         try:
-            #order = self.client.Order.Order_cancel(orderID=order_id).result()[0]
-            #positions = self.client.Position.Position_get(
-            #    filter=json.dumps({"symbol": self.symbol})
-            #).result()[0]
-            if side == 'Sell' and quantity > 0:
-                #Pass 
-                pass 
             order = self.client.Order.Order_new(
-                        symbol=self.symbol,
-                        side=side,
-                        orderQty=quantity,
-                        ordType=order_type,
-                        execInst=execInst, 
-                        clOrdID=clOrdID, 
-                        text=text
-                    ).result()[0]
-            #for pos in positions:
-                #if pos['current_qty'] != 0:
-                    #side = "Sell" if pos['current_qty'] > 0 else "Buy"
-                    #qty = abs(pos['current_qty'])
-                    
-            self.logger.info(f"✔️✔️Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
+                symbol=self.symbol,
+                side=side,
+                orderQty=quantity,
+                ordType=order_type,
+                execInst=exec_inst,
+                clOrdID=cl_ord_id,
+                text=text
+            ).result()[0]
+            
+            self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']} | "
+                           f"clOrdID: {order.get('clOrdID')} | text: {order.get('text')}")
             return order
-            #self.logger.info(f"No open position found for {self.symbol}")
-            #return None
         except Exception as e:
             self.logger.error(f"Error closing position: {str(e)}")
             return None
 
-    def close_all_positions(self, clOrderID=None, text=None):
+    def close_all_positions(self, cl_ord_id=None, text=None):
         """
         Close all open positions for the current symbol.
 
-        :return: True if successful, None if error or no positions
+        Args:
+            cl_ord_id (str): Client Order ID
+            text (str): Order text/note
+
+        Returns:
+            bool: True if successful, None if error or no positions
         """
         try:
-            #Closed = client.Order.Order_cancel(orderID='').result() 
             positions = self.client.Position.Position_get(
                 filter=json.dumps({"symbol": self.symbol})
             ).result()[0]
+            
             if not positions:
                 self.logger.info("No positions to close")
                 return None
-            #order = client.Order.Order_cancelAll().result() 
+
             for pos in positions:
                 if pos['current_qty'] != 0:
                     side = "Sell" if pos['current_qty'] > 0 else "Buy"
@@ -301,15 +361,15 @@ class BitMEXTestAPI:
                         symbol=self.symbol,
                         side=side,
                         orderQty=qty,
-                        ordType="Market", 
+                        ordType="Market",
                         execInst='Close',
-                        clOrdID=clOrderID,
+                        clOrdID=cl_ord_id,
                         text=text
                     ).result()[0]
-            self.logger.info(f"✔️✔️Closed position: {order['ordStatus']} | OrderID: {order['orderID']}")
+                    self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']} | "
+                                   f"clOrdID: {order.get('clOrdID')} | text: {order.get('text')}")
 
             time.sleep(2)
-            #self.get_profile_info()
             return True
         except Exception as e:
             self.logger.error(f"Error closing all positions: {str(e)}")
@@ -317,10 +377,13 @@ class BitMEXTestAPI:
 
     def set_leverage(self, leverage):
         """
-        Set leverage for the specified symbol using Position_updateLeverage.
+        Set leverage for the specified symbol.
 
-        :param leverage: Leverage value (0.01 to 100 for isolated margin, 0 for cross margin)
-        :return: Response from API or None if error
+        Args:
+            leverage (float): Leverage value (0.01 to 100 for isolated, 0 for cross)
+
+        Returns:
+            dict: API response or None if error
         """
         try:
             if not 0 <= leverage <= 100:
@@ -338,11 +401,38 @@ class BitMEXTestAPI:
             self.logger.error(f"Error setting leverage: {str(e)}")
             return None
 
+    def set_cross_leverage(self, leverage):
+        """
+        Set cross leverage for the specified symbol.
+
+        Args:
+            leverage (float): Leverage value (0.01 to 100)
+
+        Returns:
+            dict: API response or None if error
+        """
+        try:
+            if not 0 <= leverage <= 100:
+                self.logger.warning("Leverage must be between 0 and 100")
+
+            response = self.client.Position.Position_updateCrossLeverage(
+                symbol=self.symbol,
+                leverage=leverage
+            ).result()[0]
+
+            margin_type = "isolated" if leverage > 0 else "cross"
+            self.logger.info(f"Cross leverage set to {leverage}x ({margin_type} margin) for {self.symbol}")
+            return response
+        except Exception as e:
+            self.logger.error(f"Error setting cross leverage: {str(e)}")
+            return None
+
     def run_test_sequence(self):
         """
         Run a test sequence of trading operations.
 
-        :return: Final profile info or None if error
+        Returns:
+            dict: Final profile info or None if error
         """
         try:
             self.logger.info("Starting test sequence")
@@ -352,7 +442,7 @@ class BitMEXTestAPI:
             self.get_profile_info()
 
             self.logger.info("=== SETTING LEVERAGE ===")
-            self.set_leverage(100)  # Set to 100x for 1:1 profit-to-move; change to 1 for 1:1 position-to-margin
+            self.set_leverage(100)
 
             self.logger.info("=== OPENING LONG POSITION (BUY) ===")
             self.open_position(side="Buy", quantity=1)
@@ -386,6 +476,6 @@ if __name__ == "__main__":
         api_secret=os.getenv("BITMEX_API_SECRET"),
         test=True,
         symbol="SOL-USD",
-        Log=logger
+        logger=logger
     )
     api.run_test_sequence()
