@@ -261,7 +261,7 @@ class BitMEXTestAPI:
                     self.logger.warning("Zero or negative balance")
                     return None
 
-            cl_ord_id = cl_ord_id or 'No strings attached'
+            clOrdID = clOrdID or 'No strings attached'
             
             # Prepare entry order
             order_params = {
