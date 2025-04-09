@@ -546,7 +546,7 @@ class MatteGreen:
             self.equity_curve = [self.initial_balance]
             self.logger.info(f"Initial balance: ${self.initial_balance:.2f}")
         self.logger.info("=== SETTING LEVERAGE ===")
-        #self.api.set_leverage(15)
+        self.api.set_cross_leverage(15)
         signal_found = False
         iteration = 0
         while (time.time() - start_time) < max_runtime_minutes * 60:
