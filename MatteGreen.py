@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# MatteGreen.py v1
 import os
 import time
 import pandas as pd
@@ -8,9 +8,8 @@ from collections import deque
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 import pytz
-import yfinance as yf
 from datetime import datetime, timedelta
-from BitMEXApi import BitMEXTestAPI
+from BitMEXTestAPI import BitMEXTestAPI
 from TeleLogBot import configure_logging, TelegramBot
 from PerfCalc import get_trading_performance_summary
 import logging
@@ -127,7 +126,7 @@ class MatteGreen:
         self.logger, self.bot = configure_logging(os.getenv("TOKEN"), os.getenv("CHAT_ID")) 
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO)
-        self.api = BitMEXTestAPI(api_key, api_secret, test=test, symbol=symbol, Log=self.logger)
+        self.api = BitMEXTestAPI(api_key, api_secret, test=test, symbol=symbol, timeframe=timeframe, Log=self.logger)
         self.telegram_bot = TelegramBot(telegram_token, telegram_chat_id) if telegram_token and telegram_chat_id else None
         self.df = pd.DataFrame()
         self.swing_highs = []
@@ -143,11 +142,14 @@ class MatteGreen:
 
     def get_market_data(self):
         try:
-            data = yf.download(tickers=self.symbol, interval=self.timeframe, period='2d') 
-            data.columns = [col[0].lower() for col in data.columns] 
+            # Fetch 5m candle data from BitMEX instead of Yahoo Finance
+            data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period + 20)  # Extra candles for safety
             if data is None or data.empty:
-                self.logger.error("No data from Yfinance API")
+                self.logger.error("No data from BitMEX API")
                 return False
+            # Rename columns to match previous structure
+            data = data.rename(columns={'open': 'open', 'high': 'high', 'low': 'low', 'close': 'close', 'volume': 'volume'})
+            data.index = data['timestamp']  # Set timestamp as index for consistency
             data['higher_high'] = False
             data['lower_low'] = False
             data['bos_up'] = False
@@ -157,6 +159,7 @@ class MatteGreen:
             data['bullish_fvg'] = False
             data['bearish_fvg'] = False
             self.df = data
+            self.logger.info(f"Fetched {len(self.df)} {self.timeframe} candles from BitMEX for {self.symbol}")
             return True
         except Exception as e:
             self.logger.error(f"Market data fetch failed: {str(e)}")
@@ -198,9 +201,7 @@ class MatteGreen:
                         float(clOrderID['take_profit']),
                         int(clOrderID['position_size']),
                         clord_id,
-                        text,
-                        None,  # Placeholder for sl_orderID
-                        None   # Placeholder for tp_orderID
+                        text
                     )
                 except ValueError as e:
                     self.logger.warning(f"Invalid clOrdID format or data: {clord_id} - {str(e)}")
@@ -217,6 +218,7 @@ class MatteGreen:
                     trade_id, entry_idx, entry_price, direction, stop_loss, take_profit, size, _, text = trade[:9]
                     sl_executions = self.api.get_executions(orderID=sl_orderID) if sl_orderID else []
                     tp_executions = self.api.get_executions(orderID=tp_orderID) if tp_orderID else []
+                    
                     if sl_executions:
                         exit_price = sum(exec_['price'] * exec_['execQty'] for exec_ in sl_executions) / sum(exec_['execQty'] for exec_ in sl_executions)
                         reason = 'stoploss'
@@ -226,6 +228,7 @@ class MatteGreen:
                     else:
                         exit_price = self.df['close'].iloc[-1]  # Fallback if no executions found
                         reason = 'unknown'
+                    
                     pl = (exit_price - entry_price) * size if direction == 'long' else (entry_price - exit_price) * size
                     self.trades.append({
                         'entry_idx': entry_idx, 'exit_idx': len(self.df) - 1, 'entry_price': entry_price,
@@ -238,16 +241,15 @@ class MatteGreen:
                     self.logger.info(f"Closed trade {clord_id} at {exit_price} due to {reason}")
                 elif clord_id in exchange_trades and has_position and trade[3] != position_direction:
                     self.logger.warning(f"Correcting direction mismatch for clOrdID {clord_id}: local={trade[3]}, exchange={position_direction}")
-                    trade_id, entry_idx, entry_price, _, stop_loss, take_profit, size, clord_id, text, sl_orderID, tp_orderID = trade
+                    trade_id, entry_idx, entry_price, _, stop_loss, take_profit, size, clord_id, text = trade
                     self.current_trades.remove(trade)
-                    self.current_trades.append((trade_id, entry_idx, entry_price, position_direction, stop_loss, take_profit, size, clord_id, text, sl_orderID, tp_orderID))
+                    self.current_trades.append((trade_id, entry_idx, entry_price, position_direction, stop_loss, take_profit, size, clord_id, text))
 
             for clord_id, trade_data in exchange_trades.items():
                 if clord_id not in local_clord_ids:
                     self.current_trades.append(trade_data)
             
             self.logger.debug(f"Current trades after sync: {self.current_trades}")
-               
         except Exception as e:
             self.logger.error(f"Failed to sync open orders: {str(e)}")
         self.logger.info('🔄Done Sync....... ')
@@ -301,19 +303,19 @@ class MatteGreen:
     def execute_trades(self):
         signals = []
         current_idx = len(self.df) - 1
-        current_price = self.df['close'].iloc[current_idx]
+        current_price = self.df['close'].iloc[current_idx]  # 5m closing price
     
         total_risk_amount = sum(abs(entry_price - stop_loss) * size for _, _, entry_price, _, stop_loss, _, size, _, _ in self.current_trades)
         max_total_risk = self.current_balance * 0.20
     
         for trade in list(self.current_trades):
-            trade_id, idx, entry_price, direction, stop_loss, take_profit, size, clord_id, text, sl_orderID, tp_orderID = trade
+            trade_id, idx, entry_price, direction, stop_loss, take_profit, size, clord_id, text = trade
             if (direction == 'long' and self.df['low'].iloc[current_idx] <= stop_loss) or \
                (direction == 'short' and self.df['high'].iloc[current_idx] >= stop_loss):
                 pl = (stop_loss - entry_price) * size if direction == 'long' else (entry_price - stop_loss) * size
                 self.current_balance += pl
                 self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': entry_price,
-                                    'exit_price': round(stop_loss, 4), 'direction': direction, 'pl': pl, 'result': 'loss', 'trade_id': trade_id, 'clord_id': clord_id})
+                                    'exit_price': round(stop_loss, 4), 'direction': direction, 'pl': pl, 'result': 'loss', 'trade_id': trade_id})
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.execute_exit({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
@@ -322,7 +324,7 @@ class MatteGreen:
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
                 self.current_balance += pl
                 self.trades.append({'entry_idx': idx, 'exit_idx': current_idx, 'entry_price': round(entry_price, 2),
-                                    'exit_price': round(take_profit, 4), 'direction': direction, 'pl': pl, 'result': 'win', 'trade_id': trade_id, 'clord_id': clord_id})
+                                    'exit_price': round(take_profit, 4), 'direction': direction, 'pl': pl, 'result': 'win', 'trade_id': trade_id})
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.execute_exit({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.current_trades.remove(trade)
@@ -330,39 +332,59 @@ class MatteGreen:
         if len(self.current_trades) < 3 and current_idx >= self.lookback_period:
             direction = 'long' if self.market_bias == 'bullish' else 'short' if self.market_bias == 'bearish' else None
             if direction:
-                entry_price = current_price
+                entry_price = current_price  # Intended 5m entry price
                 lookback_start = max(0, current_idx - self.lookback_period)
                 stop_dist = entry_price - min(self.df['low'].iloc[lookback_start:current_idx+1]) if direction == 'long' else \
                             max(self.df['high'].iloc[lookback_start:current_idx+1]) - entry_price
                 stop_loss = entry_price - stop_dist * 0.25 if direction == 'long' else entry_price + stop_dist * 0.25
-                take_profit = entry_price + stop_dist * self.rr_ratio if direction == 'long' else entry_price - stop_dist * self.rr_ratio
+                take_profit = entry_price + stop_dist * 0.625 if direction == 'long' else entry_price - stop_dist * 0.625
                 size = (self.current_balance * self.risk_per_trade) / abs(entry_price - stop_loss)
                 risk_of_new_trade = abs(entry_price - stop_loss) * size
     
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
                                     'take_profit': round(take_profit, 4), 'position_size': int(size) if size < 1 else 1, 'entry_idx': current_idx})
-                    self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None, None, None))
-                    self.logger.info(f"Entry: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
+                    self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None))
+                    self.logger.info(f"Entry signal: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
     
         self.equity_curve.append(self.current_balance)
         return signals
 
     def execute_entry(self, signal):
         side = signal['side']
-        price = signal['price']
+        desired_price = signal['price']  # 5m closing price
         stop_loss = signal['stop_loss']
         take_profit = signal['take_profit']
         position_size = signal['position_size']
         entry_idx = signal['entry_idx']
         sast_now = get_sast_time()
 
+        # Fetch the latest 1m candle to check current price
+        current_1m_data = self.api.get_candle(timeframe='1m', count=1)
+        if current_1m_data is None or current_1m_data.empty:
+            self.logger.error("Failed to fetch 1m candle for price validation")
+            return
+        current_1m_price = current_1m_data['close'].iloc[-1]
+        price_threshold = desired_price * 0.005  # 0.5% tolerance
+
+        self.logger.info(f"Desired 5m entry price: {desired_price}, Current 1m price: {current_1m_price}, Threshold: ±{price_threshold}")
+
+        # Check if 1m price is within acceptable range of 5m price
+        if abs(current_1m_price - desired_price) > price_threshold:
+            self.logger.warning(f"1m price ({current_1m_price}) deviates from 5m desired price ({desired_price}) beyond threshold. Adjusting to limit order.")
+            order_type = "Limit"
+            entry_price = desired_price  # Use the 5m price as a limit order
+        else:
+            self.logger.info("1m price within threshold of 5m price. Proceeding with market order.")
+            order_type = "Market"
+            entry_price = current_1m_price  # Use current 1m price for market order
+
         date_str = sast_now.strftime("%Y%m%d%H%M")
         uid = str(uuid.uuid4())[:6]
         clord_id = f"({self.symbol});({date_str});({uid})"
-        text = f"('open');('entry');({price}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
+        text = f"('open');('entry');({entry_price}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
 
-        self.logger.info(f"Opening position with clOrdID: '{clord_id}' (length: {len(clord_id)}), text: '{text}'")
+        self.logger.info(f"Opening position with clOrdID: '{clord_id}' (length: {len(clord_id)}), text: '{text}', order_type: {order_type}")
 
         if len(clord_id) > 36:
             self.logger.error(f"clOrdID exceeds 36 characters: {clord_id}")
@@ -376,25 +398,28 @@ class MatteGreen:
             return
     
         available_margin = profile['balance']['bitmex_usd']
-        required_margin = (position_size * price) / 5  # Assuming leverage is 5x
-    
-        if required_margin > available_margin:
-            self.logger.error(f"Insufficient margin: Required ${required_margin:.2f}, Available ${available_margin:.2f}")
-            return
+        required_margin = (position_size * entry_price) / 5  # Assuming 5x leverage
 
         try:
-            orders = self.api.open_position(side=pos_side, quantity=pos_quantity, order_type="Market",
-                                            take_profit_price=take_profit, stop_loss_price=stop_loss, 
-                                            clOrdID=clord_id, text=text)
+            orders = self.api.open_position(
+                side=pos_side,
+                quantity=pos_quantity,
+                order_type=order_type,
+                price=entry_price if order_type == "Limit" else None,  # Pass price only for limit orders
+                take_profit_price=take_profit,
+                stop_loss_price=stop_loss,
+                clOrdID=clord_id,
+                text=text
+            )
             if orders and orders.get('entry'):
                 trade_id = orders['entry']['orderID']
                 sl_orderID = orders['stop_loss']['orderID'] if orders.get('stop_loss') else None
                 tp_orderID = orders['take_profit']['orderID'] if orders.get('take_profit') else None
-                self.current_trades.append((trade_id, entry_idx, price, side, stop_loss, take_profit, position_size, clord_id, text, sl_orderID, tp_orderID))
-                self.logger.info(f"📈🎉Opened {pos_side} at {price}, SL: {stop_loss}, TP: {take_profit}, ID: {trade_id}, clOrdID: {clord_id}")
+                # Replace the last appended trade with full details
+                self.current_trades[-1] = (trade_id, entry_idx, entry_price, side, stop_loss, take_profit, position_size, clord_id, text, sl_orderID, tp_orderID)
+                self.logger.info(f"📈🎉Opened {pos_side} at {entry_price}, SL: {stop_loss}, TP: {take_profit}, ID: {trade_id}, clOrdID: {clord_id}")
             else:
                 self.logger.warning(f"Order failed, tracking locally with clOrdID: {clord_id}")
-                self.current_trades.append((None, entry_idx, price, side, stop_loss, take_profit, position_size, clord_id, text, None, None))
         except Exception as e:
             self.logger.error(f"Error opening position: {str(e)}")
             raise
@@ -408,7 +433,7 @@ class MatteGreen:
         sast_now = get_sast_time()
 
         for trade in list(self.current_trades):
-            stored_trade_id, idx, entry_price, trade_direction, stop_loss, take_profit, size, clord_id, text, sl_orderID, tp_orderID = trade
+            stored_trade_id, idx, entry_price, trade_direction, stop_loss, take_profit, size, clord_id, text = trade
             if idx == entry_idx and trade_direction == direction:
                 try:
                     positions = self.api.get_positions() or []
@@ -422,16 +447,35 @@ class MatteGreen:
                             'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                             'trade_id': trade_id, 'clord_id': clord_id
                         })
+                        self.current_trades.remove(trade)
                         continue
 
                     if trade_id and trade_id == stored_trade_id:
                         if clord_id is None or text is None:
                             self.logger.warning(f"Invalid clOrdID ({clord_id}) or text ({text}) for trade {trade_id}, skipping API close.")
+                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                            self.current_balance += pl
+                            self.equity_curve.append(self.current_balance)
+                            self.trades.append({
+                                'entry_idx': entry_idx, 'exit_idx': len(self.df) - 1, 'entry_price': entry_price,
+                                'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
+                                'trade_id': trade_id, 'clord_id': clord_id
+                            })
+                            self.current_trades.remove(trade)
                             continue
                         new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
                         side = 'Sell' if position_qty > 0 else 'Buy' if position_qty < 0 else None
                         if side is None:
                             self.logger.warning(f"Position quantity is 0 but trade exists locally, skipping API close for {clord_id}")
+                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                            self.current_balance += pl
+                            self.equity_curve.append(self.current_balance)
+                            self.trades.append({
+                                'entry_idx': entry_idx, 'exit_idx': len(self.df) - 1, 'entry_price': entry_price,
+                                'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
+                                'trade_id': trade_id, 'clord_id': clord_id
+                            })
+                            self.current_trades.remove(trade)
                             continue
                         if len(new_clord_id) > 36:
                             self.logger.error(f"clOrdID exceeds 36 characters: {new_clord_id}")
@@ -442,10 +486,18 @@ class MatteGreen:
                     else:
                         if clord_id is None:
                             self.logger.warning(f"No valid clOrdID for trade, skipping manual close.")
+                            pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
+                            self.current_balance += pl
+                            self.equity_curve.append(self.current_balance)
+                            self.trades.append({
+                                'entry_idx': entry_idx, 'exit_idx': len(self.df) - 1, 'entry_price': entry_price,
+                                'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
+                                'trade_id': trade_id, 'clord_id': clord_id
+                            })
+                            self.current_trades.remove(trade)
                             continue
                         new_clord_id, new_text = update_clOrderID_string(clord_id, text, status='closed')
                         self.logger.warning(f"No valid trade_id, closing manually with clOrdID: {new_clord_id}")
-                        self.api.close_all_positions(clOrdID=new_clord_id)
 
                     pl = (price - entry_price) * size if direction == 'long' else (entry_price - price) * size
                     self.current_balance += pl
@@ -455,7 +507,7 @@ class MatteGreen:
                         'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                         'trade_id': trade_id, 'clord_id': new_clord_id
                     })
-                    
+                    self.current_trades.remove(trade)
                     self.logger.info(f"Closed {direction} at {price}, Reason: {reason}, PnL: {pl}, clOrdID: {new_clord_id}")
                 except Exception as e:
                     self.logger.error(f"Failed to close position {clord_id}: {str(e)}")
@@ -472,8 +524,7 @@ class MatteGreen:
                         'exit_price': price, 'direction': direction, 'pl': pl, 'result': 'win' if pl > 0 else 'loss',
                         'trade_id': trade_id, 'clord_id': clord_id if clord_id is None else new_clord_id
                     })
-                    
-                self.current_trades.remove(trade)
+                    self.current_trades.remove(trade)
                 break
 
     def visualize_results(self, start_idx=0, end_idx=None):
@@ -529,7 +580,6 @@ class MatteGreen:
             self.equity_curve = [self.initial_balance]
             self.logger.info(f"Initial balance: ${self.initial_balance:.2f}")
         self.logger.info("=== SETTING LEVERAGE ===")
-        #self.api.set_leverage(15)
         signal_found = False
         iteration = 0
         while (time.time() - start_time) < max_runtime_minutes * 60:
@@ -558,8 +608,8 @@ class MatteGreen:
                 wallet_history = self.api.get_transactions() 
                 positions = self.api.get_positions()
                 performance = get_trading_performance_summary(wallet_history, positions) 
-                self.logger.info(f"Performance:\n\n\nOverview: \n{performance}")
-                
+                self.logger.info(f"Performance:\n\n\nOverview: \n{profile['user']} \n\nProfits: \n{profile['balance']}\n\nMetadata: \n{profile['positions']}")
+
                 if self.bot and iteration % 2 != 0:
                     fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
                     caption = (f"📸Scan {iteration+1}\nTimestamp: {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
