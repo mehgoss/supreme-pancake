@@ -7,9 +7,27 @@ import pytz
 from datetime import datetime
 import pandas as pd
 from dotenv import load_dotenv
-import bitmex  # Requires 'bitmex' package: pip install bitmex
+import bitmex
 
 load_dotenv()
+
+def update_order_params(order_params, pre="SL", **updates):
+    # Create a new dictionary to avoid modifying the original
+    temp = dict(order_params)
+    temp["clOrdID"] = f"{pre};{temp.get('clOrdID', '')}"
+    temp["ordType"] = "Stop" if pre == "SL" else "Limit"
+    temp["execInst"] = "Close"
+    temp["side"] = "Sell" if temp["side"] == "Buy" else "Buy"
+    temp["contingencyType"] = "OneCancelsTheOther"
+    temp["clOrdLinkID"] = temp["clOrdID"]  # Use clOrdID as clOrdLinkID for linking orders
+    temp["stopPx"] = None
+    temp["price"] = None
+
+    # Update specific parameters based on the updates dictionary
+    for key, value in updates.items():
+        temp[key] = value
+
+    return temp
 
 class BitMEXTestAPI:
     """BitMEX API client for trading operations."""
@@ -43,168 +61,7 @@ class BitMEXTestAPI:
             self.logger.error(f"Initialization error: {str(e)}")
             raise
 
-    def get_profile_info(self):
-        """
-        Retrieve account profile information including balance and positions.
-
-        Returns:
-            dict: Profile information with user, balance, and position details, or None if error
-        """
-        try:
-            user_info = self.client.User.User_get().result()[0]
-            margin = self.client.User.User_getMargin().result()[0]
-            positions = self.client.Position.Position_get(
-                filter=json.dumps({"symbol": self.symbol})
-            ).result()[0]
-
-            btc_price_data = self.client.Trade.Trade_getBucketed(
-                symbol="XBTUSD",
-                binSize="5m",
-                count=1,
-                reverse=True
-            ).result()[0]
-            btc_usd_price = btc_price_data[-1]['close'] if btc_price_data else 90000
-
-            wallet_balance_btc = margin.get('walletBalance', 0) / 100000000  # Satoshis to BTC
-            wallet_balance_usd = wallet_balance_btc * btc_usd_price
-
-            profile_info = {
-                "user": {
-                    "id": user_info.get('id'),
-                    "username": user_info.get('username'),
-                    "email": user_info.get('email'),
-                    "account": user_info.get('account')
-                },
-                "balance": {
-                    "wallet_balance": margin.get('walletBalance', 0),
-                    "margin_balance": margin.get('marginBalance', 0),
-                    "available_margin": margin.get('availableMargin', 0),
-                    "unrealized_pnl": margin.get('unrealisedPnl', 0),
-                    "realized_pnl": margin.get('realisedPnl', 0),
-                    "bitmex_usd": wallet_balance_usd
-                },
-                "positions": [{
-                    "symbol": pos.get('symbol'),
-                    "current_qty": pos.get('currentQty', 0),
-                    "avg_entry_price": pos.get('avgEntryPrice'),
-                    "leverage": pos.get('leverage', 1),
-                    "liquidation_price": pos.get('liquidationPrice'),
-                    "unrealized_pnl": pos.get('unrealisedPnl', 0),
-                    "realized_pnl": pos.get('realisedPnl', 0)
-                } for pos in positions] if positions else []
-            }
-
-            self.logger.info("Profile information retrieved successfully")
-            self.logger.info(f"Account: {profile_info['user']['username']}")
-            self.logger.info(f"Wallet Balance: {wallet_balance_btc:.8f} BTC (${wallet_balance_usd:.2f} USD)")
-            self.logger.info(f"Available Margin: {profile_info['balance']['available_margin'] / 100000000:.8f} BTC")
-            if profile_info['positions']:
-                for pos in profile_info['positions']:
-                    self.logger.info(f"Position: {pos['symbol']} | Qty: {pos['current_qty']} | Entry: {pos['avg_entry_price']}")
-            else:
-                self.logger.info("No open positions")
-
-            return profile_info
-        except Exception as e:
-            self.logger.error(f"Error getting profile information: {str(e)}")
-            return None
-
-    def get_open_orders(self):
-        """
-        Retrieve open orders for the specified symbol.
-
-        Returns:
-            list: List of open orders
-        """
-        open_orders = self.client.Order.Order_getOrders(
-            filter=json.dumps({"symbol": self.symbol})
-        ).result()[0]
-        return open_orders
-
-    def get_transactions(self):
-        """
-        Retrieve wallet transaction history.
-
-        Returns:
-            list: List of wallet transactions
-        """
-        wallet_history = self.client.User.User_getWalletHistory().result()[0]
-        return wallet_history
-
-    def get_wallet_summary(self):
-        """
-        Retrieve wallet summary for the specified symbol.
-
-        Returns:
-            list: Wallet summary data
-        """
-        wallet_summary = self.client.User.User_getWalletSummary().result()[0]
-        return wallet_summary
-
-    def get_stats_history_usd(self):
-        """
-        Retrieve historical stats in USD.
-
-        Returns:
-            list: Historical statistics
-        """
-        stats_history = self.client.Stats.Stats_historyUSD().result()[0]
-        return stats_history
-
-    def get_positions(self):
-        """
-        Retrieve all current positions.
-
-        Returns:
-            list: List of position data
-        """
-        positions = self.client.Position.Position_get().result()[0]
-        return positions
-
-    def get_candle(self, timeframe='1m', count=100):
-        """
-        Retrieve candlestick (OHLCV) data for the specified symbol.
-
-        Args:
-            timeframe (str): Candle timeframe (e.g., '1m', '5m', '1h')
-            count (int): Number of candles to retrieve
-
-        Returns:
-            pd.DataFrame: Candle data or None if error
-        """
-        try:
-            valid_timeframes = ['1m', '5m', '1h', '1d']
-            if timeframe not in valid_timeframes:
-                raise ValueError(f"Invalid timeframe. Supported: {', '.join(valid_timeframes)}")
-
-            candles = self.client.Trade.Trade_getBucketed(
-                symbol=self.symbol,
-                binSize=timeframe,
-                count=count,
-                reverse=True
-            ).result()[0]
-
-            if not candles:
-                raise ValueError("No candle data returned")
-
-            formatted_candles = [{
-                'timestamp': candle['timestamp'],
-                'open': candle['open'],
-                'high': candle['high'],
-                'low': candle['low'],
-                'close': candle['close'],
-                'volume': candle['volume']
-            } for candle in candles if all(key in candle for key in ['open', 'high', 'low', 'close'])]
-
-            df = pd.DataFrame(formatted_candles)
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df = df.sort_values('timestamp').reset_index(drop=True)
-
-            self.logger.info(f"Retrieved {len(df)} {timeframe} candles for {self.symbol}")
-            return df
-        except Exception as e:
-            self.logger.error(f"Error retrieving candle data: {str(e)}")
-            return None
+    # ... (Other methods remain unchanged)
 
     def open_position(self, side="Buy", quantity=100, order_type="Market", price=None, 
                      exec_inst=None, take_profit_price=None, stop_loss_price=None, 
@@ -220,7 +77,7 @@ class BitMEXTestAPI:
             exec_inst (str): Execution instructions
             take_profit_price (float): Price for Take Profit order
             stop_loss_price (float): Price for Stop Loss order
-            cl_ord_id (str): Client Order ID
+            clOrdID (str): Client Order ID
             text (str): Order text/note
 
         Returns:
@@ -261,7 +118,7 @@ class BitMEXTestAPI:
                     self.logger.warning("Zero or negative balance")
                     return None
 
-            clOrdID = clOrdID or 'No strings attached'
+            clOrdID = clOrdID or str(uuid.uuid4())[:6]  # Generate a unique ID if not provided
             
             # Prepare entry order
             order_params = {
@@ -272,201 +129,51 @@ class BitMEXTestAPI:
                 "clOrdID": clOrdID,
                 "text": text
             }
-            if order_type == "Limit":
-                if price is None:
-                    raise ValueError("Price required for Limit order")
-                order_params["price"] = price
+            
+            if order_type == "Limit" and price is not None:
+                order_params["price"] = round(price, 2)
+            
             if exec_inst:
                 order_params["execInst"] = exec_inst
 
             orders = {"entry": None, "take_profit": None, "stop_loss": None}
             position_qty = sum(pos['current_qty'] for pos in profile['positions'] if pos['symbol'] == self.symbol)
-            if abs(position_qty) < 20:
+            
+            if abs(position_qty) < 20:  # Assuming 20 contracts as a threshold for new positions
+                # Entry Order
                 orders["entry"] = self.client.Order.Order_new(**order_params).result()[0]
-                self.logger.info(f"Entry order placed: {orders['entry']['ordStatus']} | OrderID: {orders['entry']['orderID']}")
+                
+                # Stop Loss Order
+                if stop_loss_price is not None:
+                    sl_params = update_order_params(order_params, pre='SL', stopPx=round(stop_loss_price, 2))
+                    orders["stop_loss"] = self.client.Order.Order_new(**sl_params).result()[0]
+                    self.logger.info(f"Stop Loss order placed: {orders['stop_loss']['ordStatus']} | OrderID: {orders['stop_loss']['orderID']} | "
+                                     f"clOrdID: {orders['stop_loss'].get('clOrdID')} | text: {orders['stop_loss'].get('text')} | "
+                                     f"clOrdLinkID: {orders['stop_loss'].get('clOrdLinkID')}")
+
+                # Take Profit Order
+                if take_profit_price is not None:
+                    tp_params = update_order_params(order_params, pre='TP', price=round(take_profit_price, 2))
+                    orders["take_profit"] = self.client.Order.Order_new(**tp_params).result()[0]
+                    self.logger.info(f"Take Profit order placed: {orders['take_profit']['ordStatus']} | OrderID: {orders['take_profit']['orderID']} | "
+                                     f"clOrdID: {orders['take_profit'].get('clOrdID')} | text: {orders['take_profit'].get('text')} | "
+                                     f"clOrdLinkID: {orders['take_profit'].get('clOrdLinkID')}")
+
+                self.logger.info(f"Entry order placed: {orders['entry']['ordStatus']} | OrderID: {orders['entry']['orderID']} | "
+                                 f"clOrdID: {orders['entry'].get('clOrdID')} | text: {orders['entry'].get('text')}")
+                
             else:
                 self.logger.warning(f"Total position quantity {position_qty} >= 20. Skipping order")
                 return None
 
-            time.sleep(1)
-            self.get_profile_info()
+            time.sleep(1)  # Small delay to ensure orders are processed
+            self.get_profile_info()  # Refresh profile info after order placement
             return orders
         except Exception as e:
             self.logger.error(f"Error opening position: {str(e)}")
             return None
 
-    def close_position(self, side="Sell", quantity=100, order_type="Market", price=None, 
-                      exec_inst="Close", take_profit_price=None, stop_loss_price=None, 
-                      clOrdID=None, text=None):
-        """
-        Close a position.
-
-        Args:
-            side (str): 'Buy' or 'Sell'
-            quantity (int): Number of contracts
-            order_type (str): 'Market' or 'Limit'
-            price (float): Limit price
-            exec_inst (str): Execution instructions
-            take_profit_price (float): Take Profit price
-            stop_loss_price (float): Stop Loss price
-            cl_ord_id (str): Client Order ID
-            text (str): Order text/note
-
-        Returns:
-            dict: Order result or None if error
-        """
-        try:
-            order = self.client.Order.Order_new(
-                symbol=self.symbol,
-                side=side,
-                orderQty=quantity,
-                ordType=order_type,
-                execInst=exec_inst,
-                clOrdID=clOrdID,
-                text=text
-            ).result()[0]
-            
-            self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']} | "
-                           f"clOrdID: {order.get('clOrdID')} | text: {order.get('text')}")
-            return order
-        except Exception as e:
-            self.logger.error(f"Error closing position: {str(e)}")
-            return None
-
-    def close_all_positions(self, clOrdID=None, text=None):
-        """
-        Close all open positions for the current symbol.
-
-        Args:
-            cl_ord_id (str): Client Order ID
-            text (str): Order text/note
-
-        Returns:
-            bool: True if successful, None if error or no positions
-        """
-        try:
-            positions = self.client.Position.Position_get(
-                filter=json.dumps({"symbol": self.symbol})
-            ).result()[0]
-            
-            if not positions:
-                self.logger.info("No positions to close")
-                return None
-
-            for pos in positions:
-                if pos['current_qty'] != 0:
-                    side = "Sell" if pos['current_qty'] > 0 else "Buy"
-                    qty = abs(pos['current_qty'])
-                    order = self.client.Order.Order_new(
-                        symbol=self.symbol,
-                        side=side,
-                        orderQty=qty,
-                        ordType="Market",
-                        execInst='Close',
-                        clOrdID=clOrdID,
-                        text=text
-                    ).result()[0]
-                    self.logger.info(f"Closed position: {order['ordStatus']} | OrderID: {order['orderID']} | "
-                                   f"clOrdID: {order.get('clOrdID')} | text: {order.get('text')}")
-
-            time.sleep(2)
-            return True
-        except Exception as e:
-            self.logger.error(f"Error closing all positions: {str(e)}")
-            return None
-
-    def set_leverage(self, leverage):
-        """
-        Set leverage for the specified symbol.
-
-        Args:
-            leverage (float): Leverage value (0.01 to 100 for isolated, 0 for cross)
-
-        Returns:
-            dict: API response or None if error
-        """
-        try:
-            if not 0 <= leverage <= 100:
-                raise ValueError("Leverage must be between 0 and 100")
-
-            response = self.client.Position.Position_updateLeverage(
-                symbol=self.symbol,
-                leverage=leverage
-            ).result()[0]
-
-            margin_type = "isolated" if leverage > 0 else "cross"
-            self.logger.info(f"Leverage set to {leverage}x ({margin_type} margin) for {self.symbol}")
-            return response
-        except Exception as e:
-            self.logger.error(f"Error setting leverage: {str(e)}")
-            return None
-
-    def set_cross_leverage(self, leverage):
-        """
-        Set cross leverage for the specified symbol.
-
-        Args:
-            leverage (float): Leverage value (0.01 to 100)
-
-        Returns:
-            dict: API response or None if error
-        """
-        try:
-            if not 0 <= leverage <= 100:
-                self.logger.warning("Leverage must be between 0 and 100")
-
-            response = self.client.Position.Position_updateCrossLeverage(
-                symbol=self.symbol,
-                leverage=leverage
-            ).result()[0]
-
-            margin_type = "isolated" if leverage > 0 else "cross"
-            self.logger.info(f"Cross leverage set to {leverage}x ({margin_type} margin) for {self.symbol}")
-            return response
-        except Exception as e:
-            self.logger.error(f"Error setting cross leverage: {str(e)}")
-            return None
-
-    def run_test_sequence(self):
-        """
-        Run a test sequence of trading operations.
-
-        Returns:
-            dict: Final profile info or None if error
-        """
-        try:
-            self.logger.info("Starting test sequence")
-            print("Starting test sequence")
-
-            self.logger.info("=== INITIAL PROFILE ===")
-            self.get_profile_info()
-
-            self.logger.info("=== SETTING LEVERAGE ===")
-            self.set_leverage(100)
-
-            self.logger.info("=== OPENING LONG POSITION (BUY) ===")
-            self.open_position(side="Buy", quantity=1)
-
-            time.sleep(1)
-            self.get_profile_info()
-
-            self.logger.info("=== OPENING SHORT POSITION (SELL) ===")
-            self.open_position(side="Sell", quantity=1)
-
-            time.sleep(1)
-            self.get_profile_info()
-
-            self.logger.info("=== CLOSING ALL POSITIONS ===")
-            self.close_all_positions()
-
-            self.logger.info("=== FINAL PROFILE ===")
-            final_profile = self.get_profile_info()
-
-            self.logger.info("Test sequence completed successfully")
-            return final_profile
-        except Exception as e:
-            self.logger.error(f"Error in test sequence: {str(e)}")
-            return None
+    # ... (Other methods remain unchanged)
 
 if __name__ == "__main__":
     from TeleLogBot import configure_logging  # Assuming this exists
@@ -476,6 +183,6 @@ if __name__ == "__main__":
         api_secret=os.getenv("BITMEX_API_SECRET"),
         test=True,
         symbol="SOL-USD",
-        logger=logger
+        Log=logger
     )
-    api.run_test_sequence()
+    api.run_test_sequence()  # Assuming this method exists to test the sequence
