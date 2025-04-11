@@ -318,7 +318,7 @@ class MatteGreen:
                                     'exit_price': round(stop_loss, 4), 'direction': direction, 'pl': pl, 'result': 'loss', 'trade_id': trade_id})
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.execute_exit({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
-                self.current_trades.remove(trade)
+                #self.current_trades.remove(trade)
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
                  (direction == 'short' and self.df['low'].iloc[current_idx] <= take_profit):
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
@@ -327,7 +327,7 @@ class MatteGreen:
                                     'exit_price': round(take_profit, 4), 'direction': direction, 'pl': pl, 'result': 'win', 'trade_id': trade_id})
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.execute_exit({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
-                self.current_trades.remove(trade)
+                #self.current_trades.remove(trade)
     
         if len(self.current_trades) < 3 and current_idx >= self.lookback_period:
             direction = 'long' if self.market_bias == 'bullish' else 'short' if self.market_bias == 'bearish' else None
