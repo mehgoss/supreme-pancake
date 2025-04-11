@@ -15,8 +15,8 @@ load_dotenv()
 def update_order_params(order_params, pre="SL", **updates):
     temp = dict(order_params)
     temp["clOrdID"] = f"{pre};{temp.get('clOrdID', '')}"
-    temp["ordType"] = "MarketIfTouched" if pre.lower() == "sl" else "Limit"
-    temp["execInst"] = "Close" if pre.lower() == "tp" else ""
+    temp["ordType"] = "Stop" if pre.lower() == "sl" else "MarketIfTouched"
+    temp["execInst"] = "Close" if pre.lower() == "sl" else ""
     temp["side"] = "Sell" if temp["side"] == "Buy" else "Buy"
     temp["contingencyType"] = "OneCancelsTheOther"
     temp["clOrdLinkID"] = order_params.get("clOrdID", "")
