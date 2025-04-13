@@ -152,7 +152,7 @@ class BitMEXTestAPI:
             positions = self.client.Position.Position_get(
                 filter=json.dumps({"symbol": self.symbol})
             ).result()[0]
-            self.logger.info(f"Retrieved {len(positions)} positions for {self.symbol}")
+            #self.logger.info(f"Retrieved {len(positions)} positions for {self.symbol}")
             return positions
         except Exception as e:
             self.logger.error(f"Error retrieving positions: {str(e)}")
