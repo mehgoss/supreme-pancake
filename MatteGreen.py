@@ -32,6 +32,9 @@ def clOrderID_string(clord_id, text=None):
         parts = clord_id.split(';')
         if len(parts) < 3:
             raise IndexError(f"clOrdID has fewer than 3 parts: {clord_id}")
+        elif len(parts) == 4:
+            reason = part[0] #SL or TP
+            parts.pop(0)
         symbol = parts[0].strip('(').strip(')')
         date = parts[1].strip('(').strip(')')
         uid = parts[2].strip('(').strip(')')
@@ -146,8 +149,6 @@ class MatteGreen:
         try:
             # Fetch 5m candle data from BitMEX instead of Yahoo Finance
             data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period + 20)  # Extra candles for safety
-            #data = yf.download(self.symbol, period='2d', interval=self.timeframe, auto_adjust=True) 
-            #data.columns = [x[0].lower() for x in data.columns]
             if data is None or data.empty:
                 self.logger.error("No data from BitMEX API")
                 return False
@@ -245,13 +246,13 @@ class MatteGreen:
                     self.logger.info(f"Closed trade {clord_id} at {exit_price} due to {reason}")
                 elif clord_id in exchange_trades and has_position and trade[3] != position_direction:
                     self.logger.warning(f"Correcting direction mismatch for clOrdID {clord_id}: local={trade[3]}, exchange={position_direction}")
-                    trade_id, entry_idx, entry_price, _, stop_loss, take_profit, size, clord_id, text = trade
+                    trade_id, entry_idx, entry_price, _, stop_loss, take_profit, size, clord_id, text, sl_orderID, tp_orderID = trade
                     self.current_trades.remove(trade)
-                    self.current_trades.append((trade_id, entry_idx, entry_price, position_direction, stop_loss, take_profit, size, clord_id, text))
+                    self.current_trades.append((trade_id, entry_idx, entry_price, position_direction, stop_loss, take_profit, size, clord_id, text, sl_orderID, tp_orderID))
 
             for clord_id, trade_data in exchange_trades.items():
                 if clord_id not in local_clord_ids:
-                    self.current_trades.append(trade_data)
+                    self.current_trades.append(trade_data + (None, None))  # Append None for sl_orderID, tp_orderID
             
             self.logger.debug(f"Current trades after sync: {self.current_trades}")
         except Exception as e:
@@ -309,11 +310,11 @@ class MatteGreen:
         current_idx = len(self.df) - 1
         current_price = self.df['close'].iloc[current_idx]  # 5m closing price
     
-        total_risk_amount = sum(abs(entry_price - stop_loss) * size for _, _, entry_price, _, stop_loss, _, size, _, _ in self.current_trades)
+        total_risk_amount = sum(abs(entry_price - stop_loss) * size for _, _, entry_price, _, stop_loss, _, size, _, _, _, _ in self.current_trades)
         max_total_risk = self.current_balance * 0.20
     
         for trade in list(self.current_trades):
-            trade_id, idx, entry_price, direction, stop_loss, take_profit, size, clord_id, text = trade
+            trade_id, idx, entry_price, direction, stop_loss, take_profit, size, clord_id, text, sl_orderID, tp_orderID = trade
             if (direction == 'long' and self.df['low'].iloc[current_idx] <= stop_loss) or \
                (direction == 'short' and self.df['high'].iloc[current_idx] >= stop_loss):
                 pl = (stop_loss - entry_price) * size if direction == 'long' else (entry_price - stop_loss) * size
@@ -322,7 +323,6 @@ class MatteGreen:
                                     'exit_price': round(stop_loss, 4), 'direction': direction, 'pl': pl, 'result': 'loss', 'trade_id': trade_id})
                 signals.append({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.execute_exit({'action': 'exit', 'price': stop_loss, 'reason': 'stoploss', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
-                #self.current_trades.remove(trade)
             elif (direction == 'long' and self.df['high'].iloc[current_idx] >= take_profit) or \
                  (direction == 'short' and self.df['low'].iloc[current_idx] <= take_profit):
                 pl = (take_profit - entry_price) * size if direction == 'long' else (entry_price - take_profit) * size
@@ -331,7 +331,6 @@ class MatteGreen:
                                     'exit_price': round(take_profit, 4), 'direction': direction, 'pl': pl, 'result': 'win', 'trade_id': trade_id})
                 signals.append({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
                 self.execute_exit({'action': 'exit', 'price': take_profit, 'reason': 'takeprofit', 'direction': direction, 'entry_idx': idx, 'trade_id': trade_id})
-                #self.current_trades.remove(trade)
     
         if len(self.current_trades) < 3 and current_idx >= self.lookback_period:
             direction = 'long' if self.market_bias == 'bullish' else 'short' if self.market_bias == 'bearish' else None
@@ -348,7 +347,7 @@ class MatteGreen:
                 if total_risk_amount + risk_of_new_trade <= max_total_risk:
                     signals.append({'action': 'entry', 'side': direction, 'price': round(entry_price, 2), 'stop_loss': round(stop_loss, 4),
                                     'take_profit': round(take_profit, 4), 'position_size': int(size) if size < 1 else 1, 'entry_idx': current_idx})
-                    self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None))
+                    self.current_trades.append((None, current_idx, entry_price, direction, stop_loss, take_profit, size, None, None, None, None))
                     self.logger.info(f"Entry signal: {direction} at {entry_price}, SL: {stop_loss}, TP: {take_profit}")
     
         self.equity_curve.append(self.current_balance)
@@ -390,11 +389,20 @@ class MatteGreen:
         clord_id = f"({self.symbol});({date_str});({uid})"
         text = f"('open');('entry');({entry_price}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
 
-        self.logger.info(f"Opening position with clOrdID: '{clord_id}' (length: {len(clord_id)}), text: '{text}', order_type: {order_type}")
+        # Generate unique clOrdIDs for SL and TP without prefixes
+        # Note: Assuming BitMEXApi.open_position may add 'SL;' or 'TP;' prefixes internally.
+        # To prevent this, we pass distinct clOrdIDs for SL and TP orders and rely on BitMEXApi to use them as provided.
+        sl_clord_id = f"({self.symbol});({date_str});(SL{uid[:4]})"
+        tp_clord_id = f"({self.symbol});({date_str});(TP{uid[:4]})"
+        sl_text = f"('open');('stoploss');({stop_loss}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
+        tp_text = f"('open');('takeprofit');({take_profit}, {position_size}, {side}, {entry_idx});({take_profit}, {stop_loss})"
 
-        if len(clord_id) > 36:
-            self.logger.error(f"clOrdID exceeds 36 characters: {clord_id}")
-            raise ValueError(f"clOrdID exceeds 36 characters: {clord_id}")
+        self.logger.info(f"Opening position with clOrdID: '{clord_id}' (length: {len(clord_id)}), text: '{text}', order_type: {order_type}")
+        self.logger.info(f"SL clOrdID: '{sl_clord_id}', TP clOrdID: '{tp_clord_id}'")
+
+        if len(clord_id) > 36 or len(sl_clord_id) > 36 or len(tp_clord_id) > 36:
+            self.logger.error(f"clOrdID exceeds 36 characters: main={clord_id}, SL={sl_clord_id}, TP={tp_clord_id}")
+            raise ValueError(f"clOrdID exceeds 36 characters")
 
         pos_quantity = max(1, int(position_size))
         profile = self.api.get_profile_info()
@@ -410,11 +418,15 @@ class MatteGreen:
                 side=pos_side,
                 quantity=pos_quantity,
                 order_type=order_type,
-                price=entry_price if order_type == "Limit" else None,  # Pass price only for limit orders
+                price=entry_price if order_type == "Limit" else None,
                 take_profit_price=take_profit,
                 stop_loss_price=stop_loss,
                 clOrdID=clord_id,
-                text=text
+                text=text,
+                sl_clOrdID=sl_clord_id,  # Pass SL clOrdID explicitly
+                sl_text=sl_text,
+                tp_clOrdID=tp_clord_id,  # Pass TP clOrdID explicitly
+                tp_text=tp_text
             )
             if orders and orders.get('entry'):
                 trade_id = orders['entry']['orderID']
@@ -438,7 +450,7 @@ class MatteGreen:
         sast_now = get_sast_time()
 
         for trade in list(self.current_trades):
-            stored_trade_id, idx, entry_price, trade_direction, stop_loss, take_profit, size, clord_id, text = trade
+            stored_trade_id, idx, entry_price, trade_direction, stop_loss, take_profit, size, clord_id, text, sl_orderID, tp_orderID = trade
             if idx == entry_idx and trade_direction == direction:
                 try:
                     positions = self.api.get_positions() or []
