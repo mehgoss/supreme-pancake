@@ -411,10 +411,10 @@ class BitMEXTestAPI:
             if not 0 <= leverage <= 100:
                 raise ValueError("Leverage must be between 0 and 100")
 
-            response = self.client.Position.Position_updateLeverage(
+            response = self.client.Position.Position_updateCrossLeverage(
                 symbol=self.symbol,
                 leverage=leverage,
-                crossMargin=True
+                #crossMargin=True
             ).result()[0]
 
             margin_type = "isolated" if leverage > 0 else "cross"
