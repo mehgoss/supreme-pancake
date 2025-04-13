@@ -383,8 +383,8 @@ class MatteGreen:
             self.logger.info("1m price within threshold of 5m price. Proceeding with market order.")
             order_type = "Market"
             entry_price = current_1m_price  # Use current 1m price for market order
-            stop_loss = stop_loss + price threshold if pos_side == "Sell" else stop_loss - price threshold 
-            take_profit = take_profit + price threshold if pos_side == "Buy" else take_profit - price threshold  
+            stop_loss = stop_loss + price_threshold if pos_side == "Sell" else stop_loss - price threshold 
+            take_profit = take_profit + price_threshold if pos_side == "Buy" else take_profit - price threshold  
         date_str = sast_now.strftime("%Y%m%d%H%M")
         uid = str(uuid.uuid4())[:6]
         clord_id = f"({self.symbol});({date_str});({uid})"
