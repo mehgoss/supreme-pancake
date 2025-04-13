@@ -309,7 +309,7 @@ class BitMEXTestAPI:
                         tp_params = update_order_params(
                             order_params,
                             pre="TP",
-                            price=round(take_profit_price, 2)
+                            stopPx=round(take_profit_price, 2)
                         )
                         orders["take_profit"] = self.client.Order.Order_new(**tp_params).result()[0]
                         self.logger.info(f"Take Profit order placed: {orders['take_profit']['ordStatus']} | OrderID: {orders['take_profit']['orderID']} | "
