@@ -597,7 +597,7 @@ class MatteGreen:
             self.equity_curve = [self.initial_balance]
             self.logger.info(f"Initial balance: ${self.initial_balance:.2f}")
         self.logger.info("=== SETTING LEVERAGE ===")
-        self.api.set_cross_leverage(1)
+        self.api.set_cross_leverage(10) 
         signal_found = False
         iteration = 0
         while (time.time() - start_time) < max_runtime_minutes * 60:
@@ -631,7 +631,7 @@ class MatteGreen:
                 if self.bot and iteration % 2 == 0:
                     fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
                     caption = (f"📸Scan {iteration+1}\nTimestamp: {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                               f"Symbol: {self.symbol}\nSignal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice @ ${self.df['close'][-1]}")
+                               f"Symbol: {self.symbol}\nSignal: {signal_found}\nBalance: ${profile['balance']['bitmex_usd']:.2f}\nPrice @ ${self.df['close'][-1]}\n")
                     self.bot.send_photo(fig=fig, caption=caption)
                 self.logger.info(f"({self.symbol}) Price @ ${self.df['close'][-1]} \n\n 😪😪😪 Sleeping for {scan_interval/60} minutes....") 
             except Exception as e:
