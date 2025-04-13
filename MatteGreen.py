@@ -33,7 +33,7 @@ def clOrderID_string(clord_id, text=None):
         if len(parts) < 3:
             raise IndexError(f"clOrdID has fewer than 3 parts: {clord_id}")
         elif len(parts) == 4:
-            reason = part[0] #SL or TP
+            reason = parts[0] #SL or TP
             parts.pop(0)
         symbol = parts[0].strip('(').strip(')')
         date = parts[1].strip('(').strip(')')
@@ -423,10 +423,10 @@ class MatteGreen:
                 stop_loss_price=stop_loss,
                 clOrdID=clord_id,
                 text=text,
-                sl_clOrdID=sl_clord_id,  # Pass SL clOrdID explicitly
-                sl_text=sl_text,
-                tp_clOrdID=tp_clord_id,  # Pass TP clOrdID explicitly
-                tp_text=tp_text
+                #sl_clOrdID=sl_clord_id,  # Pass SL clOrdID explicitly
+                #sl_text=sl_text,
+                #tp_clOrdID=tp_clord_id,  # Pass TP clOrdID explicitly
+                #tp_text=tp_text
             )
             if orders and orders.get('entry'):
                 trade_id = orders['entry']['orderID']
