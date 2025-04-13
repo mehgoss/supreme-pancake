@@ -145,15 +145,15 @@ class MatteGreen:
     def get_market_data(self):
         try:
             # Fetch 5m candle data from BitMEX instead of Yahoo Finance
-            #data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period + 20)  # Extra candles for safety
-            data = yf.download(self.symbol, period='2d', interval=self.timeframe, auto_adjust=True) 
-            data.columns = [x[0].lower() for x in data.columns]
+            data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period + 20)  # Extra candles for safety
+            #data = yf.download(self.symbol, period='2d', interval=self.timeframe, auto_adjust=True) 
+            #data.columns = [x[0].lower() for x in data.columns]
             if data is None or data.empty:
                 self.logger.error("No data from BitMEX API")
                 return False
             # Rename columns to match previous structure
-            #data = data.rename(columns={'open': 'open', 'high': 'high', 'low': 'low', 'close': 'close', 'volume': 'volume'})
-            #data.index = data['timestamp']  # Set timestamp as index for consistency
+            data = data.rename(columns={'open': 'open', 'high': 'high', 'low': 'low', 'close': 'close', 'volume': 'volume'})
+            data.index = data['timestamp']  # Set timestamp as index for consistency
             data['higher_high'] = False
             data['lower_low'] = False
             data['bos_up'] = False
@@ -586,6 +586,7 @@ class MatteGreen:
             self.equity_curve = [self.initial_balance]
             self.logger.info(f"Initial balance: ${self.initial_balance:.2f}")
         self.logger.info("=== SETTING LEVERAGE ===")
+        self.api.set_cross_leverage(1)
         signal_found = False
         iteration = 0
         while (time.time() - start_time) < max_runtime_minutes * 60:
