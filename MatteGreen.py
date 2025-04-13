@@ -372,6 +372,7 @@ class MatteGreen:
         price_threshold = desired_price * 0.005  # 0.5% tolerance
 
         self.logger.info(f"Desired 5m entry price: {desired_price}, Current 1m price: {current_1m_price}, Threshold: ±{price_threshold}")
+        pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
 
         # Check if 1m price is within acceptable range of 5m price
         if abs(current_1m_price - desired_price) > price_threshold:
@@ -382,9 +383,8 @@ class MatteGreen:
             self.logger.info("1m price within threshold of 5m price. Proceeding with market order.")
             order_type = "Market"
             entry_price = current_1m_price  # Use current 1m price for market order
-            stop_loss = stop_loss + price_threshold
-            take_profit = take_profit + price_threshold
-
+            stop_loss = stop_loss + price threshold if pos_side == "Sell" else stop_loss - price threshold 
+            take_profit = take_profit + price threshold if pos_side == "Buy" else take_profit - price threshold  
         date_str = sast_now.strftime("%Y%m%d%H%M")
         uid = str(uuid.uuid4())[:6]
         clord_id = f"({self.symbol});({date_str});({uid})"
@@ -396,7 +396,6 @@ class MatteGreen:
             self.logger.error(f"clOrdID exceeds 36 characters: {clord_id}")
             raise ValueError(f"clOrdID exceeds 36 characters: {clord_id}")
 
-        pos_side = "Sell" if side.lower() in ['short', 'sell'] else "Buy"
         pos_quantity = max(1, int(position_size))
         profile = self.api.get_profile_info()
         if not profile or 'balance' not in profile:
