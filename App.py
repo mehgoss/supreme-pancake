@@ -34,7 +34,7 @@ def long_running_task(logger,bot):
     Runs the trading strategy for approximately 3 minutes
     """
     start_time = time.time()
-    max_runtime = 60 * 60  # 3 minutes in seconds
+    max_runtime = 40 * 60  # 3 minutes in seconds
     
     try:
         #api = BitMEXTestAPI(
@@ -50,7 +50,7 @@ def long_running_task(logger,bot):
             api_secret=API_SECRET,
             test=True,
             symbol="SOL-USD",
-            timeframe="5m",
+            timeframe="15m",
             risk_per_trade=0.005,
             log=logger,
             #telegram_bot=bot, 
