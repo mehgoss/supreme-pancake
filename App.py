@@ -50,7 +50,7 @@ def long_running_task(logger,bot):
             api_secret=API_SECRET,
             test=True,
             symbol="SOL-USD",
-            timeframe="15m",
+            timeframe="5m",
             risk_per_trade=0.005,
             log=logger,
             #telegram_bot=bot, 
