@@ -14,6 +14,7 @@ from TeleLogBot import configure_logging, TelegramBot
 from PerfCalc import get_trading_performance_summary
 import logging
 import uuid
+import yfinance as yf 
 
 load_dotenv()
 
@@ -126,7 +127,8 @@ class MatteGreen:
         self.logger, self.bot = configure_logging(os.getenv("TOKEN"), os.getenv("CHAT_ID")) 
         if not self.logger.handlers:
             logging.basicConfig(level=logging.INFO)
-        self.api = BitMEXTestAPI(api_key, api_secret, test=test, symbol=symbol, timeframe=timeframe, Log=self.logger)
+        valid_timeframes = ['1m', '5m', '1h', '1d'] 
+        self.api = BitMEXTestAPI(api_key, api_secret, test=test, symbol=symbol, timeframe=timeframe if timeframe in valid_timeframes else "5m", Log=self.logger)
         self.telegram_bot = TelegramBot(telegram_token, telegram_chat_id) if telegram_token and telegram_chat_id else None
         self.df = pd.DataFrame()
         self.swing_highs = []
@@ -143,13 +145,15 @@ class MatteGreen:
     def get_market_data(self):
         try:
             # Fetch 5m candle data from BitMEX instead of Yahoo Finance
-            data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period + 20)  # Extra candles for safety
+            #data = self.api.get_candle(timeframe=self.timeframe, count=self.lookback_period + 20)  # Extra candles for safety
+            data = yf.download(self.symbol, period='2d', interval=self.timeframe, auto_adjust=True) 
+            data.columns = [x[0].lower() for x in data.columns]
             if data is None or data.empty:
                 self.logger.error("No data from BitMEX API")
                 return False
             # Rename columns to match previous structure
-            data = data.rename(columns={'open': 'open', 'high': 'high', 'low': 'low', 'close': 'close', 'volume': 'volume'})
-            data.index = data['timestamp']  # Set timestamp as index for consistency
+            #data = data.rename(columns={'open': 'open', 'high': 'high', 'low': 'low', 'close': 'close', 'volume': 'volume'})
+            #data.index = data['timestamp']  # Set timestamp as index for consistency
             data['higher_high'] = False
             data['lower_low'] = False
             data['bos_up'] = False
@@ -558,7 +562,7 @@ class MatteGreen:
         plt.tight_layout()
         return fig
     
-    def run(self, scan_interval=300, max_runtime_minutes=45, sleep_interval_minutes=1, iterations_before_sleep=2):
+    def run(self, scan_interval=5*60, max_runtime_minutes=40, sleep_interval_minutes=1, iterations_before_sleep=2):
         start_time = time.time()
         sast_now = get_sast_time()
         Banner = """
@@ -612,7 +616,7 @@ class MatteGreen:
                 performance = get_trading_performance_summary(wallet_history, positions) 
                 self.logger.info(f"Performance:\n\n\nOverview: \n{profile['user']} \n\nProfits: \n{profile['balance']}\n\nMetadata: \n{profile['positions']}")
 
-                if self.bot and iteration % 2 != 0:
+                if self.bot and iteration % 2 == 0:
                     fig = self.visualize_results(start_idx=max(0, len(self.df) - 48))
                     caption = (f"📸Scan {iteration+1}\nTimestamp: {sast_now.strftime('%Y-%m-%d %H:%M:%S')}\n"
                                f"Symbol: {self.symbol}\nSignal: {signal_found}\nBalance: ${self.current_balance:.2f}\nPrice @ ${self.df['close'][-1]}")
