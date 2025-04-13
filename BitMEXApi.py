@@ -114,7 +114,7 @@ class BitMEXTestAPI:
             open_orders = self.client.Order.Order_getOrders(
                 filter=json.dumps({"symbol": self.symbol, "open": True})
             ).result()[0]
-            self.logger.info(f"Retrieved {len(open_orders)} open orders for {self.symbol}")
+            #self.logger.info(f"Retrieved {len(open_orders)} open orders for {self.symbol}")
             return open_orders
         except Exception as e:
             self.logger.error(f"Error retrieving open orders: {str(e)}")
@@ -123,7 +123,7 @@ class BitMEXTestAPI:
     def get_transactions(self):
         try:
             wallet_history = self.client.User.User_getWalletHistory().result()[0]
-            self.logger.info(f"Retrieved {len(wallet_history)} wallet transactions")
+            #self.logger.info(f"Retrieved {len(wallet_history)} wallet transactions")
             return wallet_history
         except Exception as e:
             self.logger.error(f"Error retrieving wallet transactions: {str(e)}")
